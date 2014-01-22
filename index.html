@@ -1,0 +1,46 @@
+<html>
+<head>
+	<script src="static/thirdparty/jquery.min.js"></script>
+</head>
+<body>
+	<div><b>Question <span id="qnum"></span></b></div>
+	<div id="qtext"></div>
+	<div id="qchoices"></div>
+	<div><button id="show">Show Answer</button></div>
+	<div style="display:none" id="answer">
+		<div id="explanation"></div>
+		<div id="tutorial"></div>
+	</div>
+
+	<script src="static/js/data.js"></script>
+	<script type="text/javascript">
+	<!--
+		var section = 0;
+		var qnum = 10;
+		var i = 0;
+
+		$('#qnum').text(qnum+1)
+		$('#qtext').html(data[section].questions[qnum].question);
+
+		var choices = data[section].questions[qnum].choices;
+		var choiceText = ''
+		for (i in choices) {
+			choiceText += '<p>' + choices[i] + '</p>\n';
+		}
+		$('#qchoices').html(choiceText);
+
+		var answers = data[section].questions[qnum].answers;
+		var answerText = ''
+		for (i in answers) {
+			answerText += answers[i] + '\n';
+		}
+		$('#explanation').html(answerText);
+		$('#tutorial').html(data[section].questions[qnum].tutorial);
+
+		$('#show').click(function() {
+			$('#answer').toggle();
+		});
+	-->
+	</script>
+</body>
+</html>
