@@ -1,45 +1,195 @@
 <html>
 <head>
-	<script src="static/thirdparty/jquery.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+	<style type="text/css"><!--
+		html { 
+			background: url(static/img/bkg.jpg) no-repeat center center fixed; 
+			-webkit-background-size: cover;
+			-moz-background-size: cover;
+			-o-background-size: cover;
+			background-size: cover;
+		}
+		body {
+			background-color: inherit;
+		}
+		div#main {
+			background-color: white;
+			padding: 30px 40px 20px 40px;
+			min-height: 100%;
+			border-left: 5px solid black;
+			border-right: 5px solid black;
+		}
+		div#qchoices {
+			padding-left: 20px;
+		}
+		.arrow {
+			cursor: pointer;
+		}
+	--></style>
 </head>
 <body>
-	<div><b>Question <span id="qnum"></span></b></div>
-	<div id="qtext"></div>
-	<div id="qchoices"></div>
-	<div><button id="show">Show Answer</button></div>
-	<div style="display:none" id="answer">
-		<div id="explanation"></div>
-		<div id="tutorial"></div>
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 col-md-8 col-md-offset-2" id="main">
+				<div class="row">
+					<ol class="breadcrumb">
+						<li><a href="#">Capstone</a></li>
+						<li><a id="section" class="active" href="#"></a></li>
+					</ol>
+				</div>
+
+				<div class="row">
+					<div class="col-xs-8">
+						<h3> 
+							<span id="prev"><i class="arrow small glyphicon glyphicon-chevron-left"></i></span>
+							Question <span id="qnum"></span>
+							<span id="next"><i class="arrow small glyphicon glyphicon-chevron-right"></i></span>
+						</h3>
+					</div>
+					<div class="col-xs-4">
+						Mastery:
+						<span id="mastery" class="btn-group">
+							<button id="mastery-1" type="button" class="btn btn-default">1</button>
+							<button id="mastery-2" type="button" class="btn btn-default">2</button>
+							<button id="mastery-3" type="button" class="btn btn-default">3</button>
+							<button id="mastery-4" type="button" class="btn btn-default">4</button>
+							<button id="mastery-5" type="button" class="btn btn-default">5</button>
+						</span>
+					</div>
+				</div>
+				<div class="row">&nbsp;</div>
+
+				<div class="row" id="qtext"></div>
+				<div class="row" id="qchoices"></div>
+				<div class="row">&nbsp;</div>
+				
+				<div class="row">
+					<button class="btn btn-primary" id="show">Show Answer</button>
+				</div>
+				
+				<div class="row" style="display:none" id="answer">
+					<hr/>
+					<div id="explanation"></div>
+					<div class="row">&nbsp;</div>
+					<div class="row text-center"><h4>Tutorial</h4></div>
+					<div id="tutorial"></div>
+				</div>
+			</div>
+		</div>
 	</div>
 
+    <script src="static/thirdparty/jquery.min.js"></script>
+	<script src="static/thirdparty/jquery.hotkeys.js"></script>
+	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
 	<script src="static/js/data.js"></script>
 	<script type="text/javascript">
 	<!--
-		var section = 0;
-		var qnum = 10;
-		var i = 0;
+		var sectionNum = 1, questionNum = 0;
 
-		$('#qnum').text(qnum+1)
-		$('#qtext').html(data[section].questions[qnum].question);
-
-		var choices = data[section].questions[qnum].choices;
-		var choiceText = ''
-		for (i in choices) {
-			choiceText += '<p>' + choices[i] + '</p>\n';
+		function initUI() {
+			$('#section').text(data[sectionNum].section);
+			$(document).bind('keypress', 's', toggleAnswer);
+			$(document).bind('keypress', 't', showTutorial);
+			$(document).bind('keypress', '1', selectMastery.bind(this, 1));
+			$(document).bind('keypress', '2', selectMastery.bind(this, 2));
+			$(document).bind('keypress', '3', selectMastery.bind(this, 3));
+			$(document).bind('keypress', '4', selectMastery.bind(this, 4));
+			$(document).bind('keypress', '5', selectMastery.bind(this, 5));
+			$(document).bind('keydown', 'left', prevQuestion);
+			$(document).bind('keydown', 'right', nextQuestion);
 		}
-		$('#qchoices').html(choiceText);
 
-		var answers = data[section].questions[qnum].answers;
-		var answerText = ''
-		for (i in answers) {
-			answerText += answers[i] + '\n';
-		}
-		$('#explanation').html(answerText);
-		$('#tutorial').html(data[section].questions[qnum].tutorial);
-
-		$('#show').click(function() {
+		function toggleAnswer() {
 			$('#answer').toggle();
-		});
+			if ($('#answer').is(':visible')) {
+				document.location.href = '#answer';
+			}
+		}
+
+		function showTutorial() {
+			if (!$('#answer').is(':visible')) {
+				$('#answer').show();
+				document.location.href = '#tutorial';
+			}
+		}
+
+		function prevQuestion() {
+			$('#answer').hide();
+			if (questionNum > 0) {
+				showQuestion(data[sectionNum], --questionNum);
+			}
+		}
+
+		function nextQuestion() {
+			$('#answer').hide();
+			if (questionNum < data[sectionNum].questions.length-1) {
+				showQuestion(data[sectionNum], ++questionNum);
+			}
+		}
+
+		function selectMastery(n) {
+			$('#mastery button').removeClass('active');
+			$('#mastery button').removeClass('btn-info');
+			if (n > 0) {
+				$('#mastery-' + n).addClass('active');
+				$('#mastery-' + n).addClass('btn-info');
+			}
+		}
+
+		function showQuestion(section, qnum) {
+			var i = 0;
+
+			if (qnum == 0) {
+				$('#prev').hide();
+				$('#next').show();
+			} else if (qnum < section.questions.length-1) {
+				$('#prev').show();
+				$('#next').show();
+			} else {
+				$('#prev').show();
+				$('#next').hide();
+			}
+			$('#qnum').text(qnum+1 + ' of ' + section.questions.length)
+			$('#qtext').html(section.questions[qnum].question);
+
+			var choices = section.questions[qnum].choices;
+			var choiceText = ''
+			for (i in choices) {
+				choiceText += '<p>' + choices[i] + '</p>\n';
+			}
+			$('#qchoices').html(choiceText);
+
+			var answers = section.questions[qnum].answers;
+			var answerText = ''
+			for (i in answers) {
+				answerText += answers[i] + '\n';
+			}
+			$('#explanation').html(answerText);
+			$('#tutorial').html(section.questions[qnum].tutorial);
+
+			$('#prev').click(function() { prevQuestion(); });
+			$('#next').click(function() { nextQuestion(); });
+			$('#show').click(function() { toggleAnswer(); });
+			$('#mastery-1').click(function() { selectMastery(1); });
+			$('#mastery-2').click(function() { selectMastery(2); });
+			$('#mastery-3').click(function() { selectMastery(3); });
+			$('#mastery-4').click(function() { selectMastery(4); });
+			$('#mastery-5').click(function() { selectMastery(5); });
+
+			selectMastery(0);
+		}
+
+		initUI();
+		showQuestion(data[sectionNum], questionNum);
 	-->
 	</script>
 </body>
