@@ -25,73 +25,92 @@ def parse(soup):
 	'''Split into sections, questions, answers, and tutorial'''
 	sections = []
 
-	tags = soup.body.div
+	divs = soup.body.find_all('div', recursive=False)
 	data = ''
 	section = None
 	obj = None
 	state = 'start'
-	for tag in tags:
-		# Ignore any content in root div that isn't a tag
-		if not istag(tag): continue
+	for div in divs:
+		for tag in div:
+			# Ignore any content in root div that isn't a tag
+			if not istag(tag): continue
 
-		# Ignore all blank paragraphs
-		text = tag.text.replace(u'\n', ' ').strip()
-		if len(text) == 0 and not tag.select('img'): continue
-		html = tag.prettify(formatter='html')
+			# Ignore all blank paragraphs
+			text = tag.text.replace(u'\n', ' ').strip()
+			if len(text) == 0 and not tag.select('img'): continue
+			html = tag.prettify(formatter='html')
 
+			is_choices_list = (tag.name == 'ol' and 'type' in tag.attrs and tag['type'] == 'A')
+			is_answers_list = (tag.name == 'ol' and 'type' in tag.attrs and tag['type'] == '1')
 
-		# Detect any new state transitions
-		if state != 'section' and tag.select('span.Section'):
-			data = ''
-			if section: sections.append(section)
-			section = {'section': '', 'questions': []}
-			state = 'section'
+			# Detect any new state transitions
+			if state != 'section' and tag.select('span.Section'):
+				if state == 'answers':
+					obj['answers'] = data
+					section['questions'].append(obj)
 
-		elif state == 'section' and not tag.select('span.Section'):
-			section['section'] = data
-			obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
-			data = ''
-			state = 'question'
+				data = ''
+				if section: sections.append(section)
+				section = {'section': '', 'questions': []}
+				state = 'section'
 
-		elif state == 'question' and re.match(u'[A-Z]\.\xa0\xa0', tag.text):
-			obj['question'] = data
-			data = []
-			state = 'choices'
+			elif state == 'section' and not tag.select('span.Section'):
+				section['section'] = data
+				obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
+				data = ''
+				state = 'question'
 
-		elif state == 'choices' and not re.match(u'[A-Z]\.\xa0\xa0', tag.text):
-			obj['choices'] = data
-			data = ''
-			state = 'tutorial'
+			elif state == 'question' and (is_choices_list or re.match(u'[A-Z]\.\xa0\xa0', tag.text)):
+				obj['question'] = data
+				data = []
+				state = 'choices'
 
-		elif state == 'tutorial' and re.match(u'Answer\s+[A-Z]\s+is', tag.text):
-			obj['tutorial'] = data
-			data = []
-			state = 'answers'
+			elif state == 'choices' and (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+)', text)):
+				obj['choices'] = data
+				data = []
+				state = 'answers'
 
-		elif state == 'answers' and not re.match(u'Answer\s+[A-Z]\s+is', tag.text):
-			obj['answers'] = data
-			section['questions'].append(obj)
-			obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
-			data = ''
-			state = 'question'
+			elif state == 'choices' and not (is_choices_list or re.match(u'([A-Z]|[0-9]+)\.\xa0+', tag.text)):
+				obj['choices'] = data
+				data = ''
+				state = 'tutorial'
 
-		# Process tag given current state
-		if state == 'section':
-			# Combine multi-line section headings (e.g. Rheumatology, Allergy, & Immunology)
-			if not len(data): data = text
-			else: data = u' '.join([data, text])
+			elif state == 'tutorial' and (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+)', tag.text)):
+				obj['tutorial'] = data
+				data = []
+				state = 'answers'
 
-		if state == 'choices':
-			data.append(text.replace(u'\xa0', ''))
+			elif state == 'answers' and not (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+|\*?Note\s*:)', tag.text)):
+				obj['answers'] = data
+				section['questions'].append(obj)
+				obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
+				data = ''
+				state = 'question'
 
-		if state == 'answers':
-			data.append(html)
+			# Process tag given current state
+			if state == 'section':
+				# Combine multi-line section headings (e.g. Rheumatology, Allergy, & Immunology)
+				if not len(data): data = text
+				else: data = u' '.join([data, text])
 
-		if state == 'question' or state == 'tutorial':
-			if not len(data): data = html
-			else: data = u'\n'.join([data, html])
+			if state == 'choices':
+				if is_choices_list:
+					data.append(unicode(tag))
+				else:
+					data.append(text.replace(u'\xa0', ''))
 
+			if state == 'answers':
+				data.append(html)
+
+			if state == 'question' or state == 'tutorial':
+				if not len(data): data = html
+				else: data = u'\n'.join([data, html])
+
+	if state == 'answers':
+		obj['answers'] = data
+		section['questions'].append(obj)
 	if section: sections.append(section)
+
 	return sections
 
 def to_html(obj):

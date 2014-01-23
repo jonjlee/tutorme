@@ -1,0 +1,294 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+	<style type="text/css"><!--
+		html { 
+			background: url(static/img/bkg.jpg) no-repeat center center fixed; 
+			-webkit-background-size: cover;
+			-moz-background-size: cover;
+			-o-background-size: cover;
+			background-size: cover;
+		}
+		body {
+			background-color: inherit;
+		}
+		div#main {
+			background-color: white;
+			padding: 30px 40px 20px 40px;
+			min-height: 100%;
+			border-left: 5px solid black;
+			border-right: 5px solid black;
+		}
+		div#qchoices {
+			padding-left: 20px;
+		}
+		.arrow {
+			cursor: pointer;
+		}
+	--></style>
+</head>
+<body>
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 col-md-8 col-md-offset-2" id="main">
+				<div class="row">
+					<ol class="breadcrumb">
+						<li><a href="index.html">Capstone</a></li>
+						<li class="active"><span id="section" href="#"></span></li>
+					</ol>
+				</div>
+
+				<div class="row">
+					<div class="col-xs-8">
+						<div class="row">
+							<h3> 
+								<span id="prev"><i class="arrow small glyphicon glyphicon-chevron-left"></i></span>
+								Question <span id="qnum"></span>
+								<span id="next"><i class="arrow small glyphicon glyphicon-chevron-right"></i></span>
+							</h3>
+						</div>
+					</div>
+					<div class="col-xs-4">
+						Mastery:
+						<span id="mastery" class="btn-group">
+							<button id="mastery-1" type="button" class="btn btn-default">1</button>
+							<button id="mastery-2" type="button" class="btn btn-default">2</button>
+							<button id="mastery-3" type="button" class="btn btn-default">3</button>
+							<button id="mastery-4" type="button" class="btn btn-default">4</button>
+							<button id="mastery-5" type="button" class="btn btn-default">5</button>
+						</span>
+					</div>
+				</div>
+				<div class="row">&nbsp;</div>
+
+				<div class="row" id="qtext"></div>
+				<div class="row" id="qchoices"></div>
+				<div class="row">&nbsp;</div>
+				
+				<div class="row">
+					<button class="btn btn-primary" id="show">Show Answer</button>
+				</div>
+				
+				<div class="row" style="display:none" id="answer">
+					<hr/>
+					<div id="explanation"></div>
+					<div class="row">&nbsp;</div>
+					<div id="tutorial" class="row text-center"><h4>Tutorial</h4></div>
+					<div id="tutorial-text"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+    <script src="static/thirdparty/jquery.min.js"></script>
+	<script src="static/thirdparty/jquery.hotkeys.js"></script>
+	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+	<script src="static/js/data.js"></script>
+	<script type="text/javascript">
+	<!--
+		function getUrlVars()
+		{
+		    var vars = [], hash;
+		    var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+		    for(var i = 0; i < hashes.length; i++)
+		    {
+		        hash = hashes[i].split('=');
+		        vars.push(hash[0]);
+		        vars[hash[0]] = hash[1];
+		    }
+		    return vars;
+		}
+	-->
+	</script>
+	<script type="text/javascript">
+
+		var localStorageKey = 'tutorme.capstone.mastery';
+		var sectionNum = 0, questionNum = 0;
+
+		function initUI() {
+			$(document).bind('keypress', 's', toggleAnswer);
+			$(document).bind('keypress', 't', showTutorial);
+			$(document).bind('keypress', 'ctrl+0', clearMastery);
+			$(document).bind('keypress', '0', selectMastery.bind(this, -1));
+			$(document).bind('keypress', '1', selectMastery.bind(this, 1));
+			$(document).bind('keypress', '2', selectMastery.bind(this, 2));
+			$(document).bind('keypress', '3', selectMastery.bind(this, 3));
+			$(document).bind('keypress', '4', selectMastery.bind(this, 4));
+			$(document).bind('keypress', '5', selectMastery.bind(this, 5));
+			$(document).bind('keydown', 'left', prevQuestion);
+			$(document).bind('keydown', 'right', nextQuestion);
+			$(document).bind('keydown', 'shift+left', prevSection);
+			$(document).bind('keydown', 'shift+right', nextSection);
+			$(document).bind('keypress', 'shift+return', gotoDashboard);
+
+			$('#prev').click(function() { prevQuestion(); });
+			$('#next').click(function() { nextQuestion(); });
+			$('#show').click(function() { toggleAnswer(); });
+			$('#mastery-1').click(function() { selectMastery(1); });
+			$('#mastery-2').click(function() { selectMastery(2); });
+			$('#mastery-3').click(function() { selectMastery(3); });
+			$('#mastery-4').click(function() { selectMastery(4); });
+			$('#mastery-5').click(function() { selectMastery(5); });
+		}
+
+		function gotoDashboard() {
+			window.location.href = "index.html";
+		}
+
+		function toggleAnswer() {
+			$('#answer').toggle();
+			if ($('#answer').is(':visible')) {
+				document.location.href = '#answer';
+			}
+		}
+
+		function showTutorial() {
+			if (!$('#answer').is(':visible')) {
+				$('#answer').show();
+			}
+			document.location.href = '#tutorial';
+		}
+
+		function prevQuestion() {
+			if (questionNum > 0) {
+				showQuestion(data, sectionNum, --questionNum);
+			}
+		}
+
+		function nextQuestion() {
+			if (questionNum < data[sectionNum].questions.length-1) {
+				showQuestion(data, sectionNum, ++questionNum);
+			}
+		}
+
+		function prevSection() {
+			if (sectionNum > 0) {
+				questionNum = 0;
+				showQuestion(data, --sectionNum, questionNum);
+			}
+		}
+
+		function nextSection() {
+			if (sectionNum < data.length-1) {
+				questionNum = 0;
+				showQuestion(data, ++sectionNum, questionNum);
+			}
+		}
+
+		function clearMastery() {
+			localStorage.removeItem(localStorageKey);
+			selectMastery(0);
+		}
+
+		function readMastery() {
+			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
+			var qkey = sectionNum + ',' + questionNum;
+			if (mastery[qkey]) {
+				selectMastery(mastery[qkey]);
+			} else {
+				selectMastery(0);
+			}
+		}
+
+		function selectMastery(n) {
+			$('#mastery button').removeClass('active');
+			$('#mastery button').removeClass('btn-info');
+			if (n > 0) {
+				$('#mastery-' + n).addClass('active');
+				$('#mastery-' + n).addClass('btn-info');
+			}
+
+			var qkey = sectionNum + ',' + questionNum;
+			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
+
+			if (n > 0) {
+				mastery[qkey] = n;
+			} else {
+				delete mastery[qkey];
+			}
+
+			localStorage.setItem(localStorageKey, JSON.stringify(mastery));
+		}
+
+		function showQuestion(data, sectionNum, qnum) {
+			var section = data[sectionNum];
+			var i = 0;
+
+			// Breadcrumb text
+			$('#section').text(section.section);
+
+			// Show/hide prev/next question arrows
+			if (qnum == 0) {
+				$('#prev').hide();
+				$('#next').show();
+			} else if (qnum < section.questions.length-1) {
+				$('#prev').show();
+				$('#next').show();
+			} else {
+				$('#prev').show();
+				$('#next').hide();
+			}
+
+			// "Question x of y" and actual question text
+			$('#qnum').text(qnum+1 + ' of ' + section.questions.length)
+			$('#qtext').html(section.questions[qnum].question);
+
+			// Choices
+			var choices = section.questions[qnum].choices;
+			var choiceText = ''
+			for (i in choices) {
+				choiceText += '<p>' + choices[i] + '</p>\n';
+			}
+			$('#qchoices').html(choiceText);
+
+			// Answers with explanations and tutorial section
+			var answers = section.questions[qnum].answers;
+			var answerText = ''
+			for (i in answers) {
+				answerText += answers[i] + '\n';
+			}
+			$('#explanation').html(answerText);
+			$('#tutorial-text').html(section.questions[qnum].tutorial || '<i>See explanations above.</i>');
+			// $('#answer').hide();
+
+			// Clear mastery selector
+			readMastery();
+			
+			// Update URL
+			if (window.history) {
+				var urlVars = getUrlVars();
+				if ((urlVars.section != '' + (sectionNum+1)) || urlVars.q != '' + (qnum+1)) {
+					window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1));
+				}
+			}
+		}
+
+		// Parse URL query params if provided
+		var urlVars = getUrlVars();
+		if (urlVars.section !== undefined && urlVars.q !== undefined) {
+			try {
+				sectionNum = parseInt(urlVars.section)-1;
+				questionNum = parseInt(urlVars.q)-1;
+			} catch (err) {
+				console.log('Could not parse query params: ' + urlVars);
+			}
+		}
+
+		// Set up keyboard shortcuts and button actions
+		initUI();
+
+		// Show current question
+		showQuestion(data, sectionNum, questionNum);
+	-->
+	</script>
+</body>
+</html>
