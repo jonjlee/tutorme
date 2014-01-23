@@ -147,7 +147,7 @@
 		function toggleAnswer() {
 			$('#answer').toggle();
 			if ($('#answer').is(':visible')) {
-				document.location.href = '#answer';
+				$('html,body').animate({scrollTop: $("#answer").offset().top},'fast');
 			}
 		}
 
@@ -155,7 +155,7 @@
 			if (!$('#answer').is(':visible')) {
 				$('#answer').show();
 			}
-			document.location.href = '#tutorial';
+			$('html,body').animate({scrollTop: $("#tutorial").offset().top},'fast');
 		}
 
 		function prevQuestion() {
@@ -258,7 +258,7 @@
 			}
 			$('#explanation').html(answerText);
 			$('#tutorial-text').html(section.questions[qnum].tutorial || '<i>See explanations above.</i>');
-			// $('#answer').hide();
+			$('#answer').hide();
 
 			// Clear mastery selector
 			readMastery();
