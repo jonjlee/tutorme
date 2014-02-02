@@ -12,6 +12,10 @@ UTF8Writer = codecs.getwriter('utf8')
 sys.stdout = UTF8Writer(sys.stdout)
 pp = pprint.PrettyPrinter(indent=4)
 
+RE_QUESTION_SECTION = re.compile(u'Part\s+[0-9]') 
+RE_CHOICES_SECTION = re.compile(u'([A-Z]|[0-9]+)\s*\.\xa0+')
+RE_ANSWER_SECTION = re.compile(u'Answers\s*\.?|The correct answer is|Answer\s+[A-Z]\s+is|Answers?\s+[A-Z]\s+and\s+[A-Z]\s|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+|[0-9]+\.[\xa0\s]+[A-Z]|[0-9]+\.[\xa0\s]+[A-Z]\.')
+
 def isempty(obj):
 	return (istag(obj) and len(obj.contents) == 0) or (obj == '')
 
@@ -20,6 +24,26 @@ def istag(obj):
 
 def getattr(obj, attr):
 	return attr in obj.attrs and obj[attr] or None
+
+def remove_mso_classes(tag):
+	classes = tag.get('class')
+	if classes:
+		for i in range(len(classes)-1, -1, -1):
+			if 'Mso' in classes[i]: del classes[i]
+
+def cleantag(tag):
+	''' Removes all "style" attributes and comments from tag. Modifies tag directly. '''
+	if tag.get('style'): del tag['style']
+	remove_mso_classes(tag)
+	if tag.get('class') and 'Mso' in tag['class']: del tag['class']
+	for node in tag.find_all():
+		if node.get('style'): del node['style']
+		remove_mso_classes(node)
+	for node in tag.findAll(text=lambda text: isinstance(text, bs4.Comment)):
+		node.extract()
+	for node in tag.findAll(lambda tag: ':' in tag.name):
+		node.extract()
+	return tag
 
 def parse(soup):
 	'''Split into sections, questions, answers, and tutorial'''
@@ -34,17 +58,19 @@ def parse(soup):
 		for tag in div:
 			# Ignore any content in root div that isn't a tag
 			if not istag(tag): continue
+			tagstate = tag.get('section')
 
 			# Ignore all blank paragraphs
 			text = tag.text.replace(u'\n', ' ').strip()
 			if len(text) == 0 and not tag.select('img'): continue
-			html = tag.prettify(formatter='html')
+			html = cleantag(tag).prettify(formatter='html')
 
-			is_choices_list = (tag.name == 'ol' and 'type' in tag.attrs and tag['type'] == 'A')
-			is_answers_list = (tag.name == 'ol' and 'type' in tag.attrs and tag['type'] == '1')
+			is_choices_list = (tag.name == 'ol' and tag.get('type') == 'A') or tag.select('table td[width=23]')
+			is_answers_list = (tag.name == 'ol' and tag.get('type') == '1')
 
 			# Detect any new state transitions
 			if state != 'section' and tag.select('span.Section'):
+				# Store the last question before starting a new section
 				if state == 'answers':
 					obj['answers'] = data
 					section['questions'].append(obj)
@@ -54,38 +80,42 @@ def parse(soup):
 				section = {'section': '', 'questions': []}
 				state = 'section'
 
-			elif state == 'section' and not tag.select('span.Section'):
-				section['section'] = data
-				obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
-				data = ''
-				state = 'question'
+			elif state == 'section':
+				if tagstate == 'question' or not tag.select('span.Section'):
+					section['section'] = data
+					obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
+					data = ''
+					state = 'question'
 
-			elif state == 'question' and (is_choices_list or re.match(u'[A-Z]\.\xa0\xa0', tag.text)):
-				obj['question'] = data
-				data = []
-				state = 'choices'
+			elif state == 'question' and tagstate != 'question':
+				if tagstate == 'choices' or is_choices_list or RE_CHOICES_SECTION.match(text):
+					obj['question'] = data
+					data = []
+					state = 'choices'
 
-			elif state == 'choices' and (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+)', text)):
-				obj['choices'] = data
-				data = []
-				state = 'answers'
+			elif state == 'choices' and tagstate != 'choices':
+				if tagstate == 'answers' or is_answers_list or RE_ANSWER_SECTION.match(text):
+					obj['choices'] = data
+					data = []
+					state = 'answers'
+				elif tagstate == 'tutorial' or not (is_choices_list or RE_CHOICES_SECTION.match(text)):
+					obj['choices'] = data
+					data = ''
+					state = 'tutorial'
 
-			elif state == 'choices' and not (is_choices_list or re.match(u'([A-Z]|[0-9]+)\.\xa0+', tag.text)):
-				obj['choices'] = data
-				data = ''
-				state = 'tutorial'
+			elif state == 'tutorial' and tagstate != 'tutorial':
+				if tagstate == 'answers' or is_answers_list or RE_ANSWER_SECTION.match(text):
+					obj['tutorial'] = data
+					data = []
+					state = 'answers'
 
-			elif state == 'tutorial' and (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+)', tag.text)):
-				obj['tutorial'] = data
-				data = []
-				state = 'answers'
-
-			elif state == 'answers' and not (is_answers_list or re.match(u'(Answers\.?|Answer\s+[A-Z]\s+is|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+|\*?Note\s*:)', tag.text)):
-				obj['answers'] = data
-				section['questions'].append(obj)
-				obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
-				data = ''
-				state = 'question'
+			elif state == 'answers' and tagstate != 'answers':
+				if tagstate == 'question' or not (is_answers_list or RE_ANSWER_SECTION.match(text) or re.match(u'\*?Note\s*:', text)):
+					obj['answers'] = data
+					section['questions'].append(obj)
+					obj = {'question': '', 'choices': [], 'tutorial': '', 'answers': ''}
+					data = ''
+					state = 'question'
 
 			# Process tag given current state
 			if state == 'section':
@@ -94,10 +124,7 @@ def parse(soup):
 				else: data = u' '.join([data, text])
 
 			if state == 'choices':
-				if is_choices_list:
-					data.append(unicode(tag))
-				else:
-					data.append(text.replace(u'\xa0', ''))
+				data.append(html.replace(u'\xa0', ''))
 
 			if state == 'answers':
 				data.append(html)
@@ -106,6 +133,7 @@ def parse(soup):
 				if not len(data): data = html
 				else: data = u'\n'.join([data, html])
 
+	# Save the last question and last section
 	if state == 'answers':
 		obj['answers'] = data
 		section['questions'].append(obj)
