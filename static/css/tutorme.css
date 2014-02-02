@@ -1,0 +1,37 @@
+html { 
+	background: url(../img/bkg3.jpg) no-repeat center center fixed; 
+	-webkit-background-size: cover;
+	-moz-background-size: cover;
+	-o-background-size: cover;
+	background-size: cover;
+}
+body {
+	background-color: inherit;
+}
+div#main {
+	background-color: white;
+	padding: 30px 40px 20px 40px;
+	/*min-height: 100%;*/
+	margin-top: 10px;
+	margin-bottom: 10px;
+	border-top: 5px solid black;
+	border-left: 5px solid black;
+	border-right: 5px solid black;
+	border-bottom: 5px solid black;
+}
+div#qchoices {
+	padding-left: 20px;
+}
+div.editor {
+	width: 100%;
+}
+.arrow {
+	cursor: pointer;
+}
+table {
+	margin: 20px 0px;
+	font-size: 14px;
+}
+table p {
+	margin: 2px 8px 2px 8px;
+}
