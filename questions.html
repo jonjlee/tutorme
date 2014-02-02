@@ -1,40 +1,17 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Transitions</title>
     <!-- Bootstrap -->
     <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="static/thirdparty/cleditor/jquery.cleditor.css" />
+    <link href="static/css/tutorme.css" rel="stylesheet">
 
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
       <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
       <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
     <![endif]-->
-
-	<style type="text/css"><!--
-		html { 
-			background: url(static/img/bkg.jpg) no-repeat center center fixed; 
-			-webkit-background-size: cover;
-			-moz-background-size: cover;
-			-o-background-size: cover;
-			background-size: cover;
-		}
-		body {
-			background-color: inherit;
-		}
-		div#main {
-			background-color: white;
-			padding: 30px 40px 20px 40px;
-			min-height: 100%;
-			border-left: 5px solid black;
-			border-right: 5px solid black;
-		}
-		div#qchoices {
-			padding-left: 20px;
-		}
-		.arrow {
-			cursor: pointer;
-		}
-	--></style>
 </head>
 <body>
 	<div class="container">
@@ -70,20 +47,36 @@
 				</div>
 				<div class="row">&nbsp;</div>
 
-				<div class="row" id="qtext"></div>
-				<div class="row" id="qchoices"></div>
+				<div class="row" id="question-panel">
+					<div class="col-xs-12">
+						<div class="row" id="qtext"></div>
+					</div>
+				</div>
+				<div class="row hide" id="qeditor-panel">
+					<textarea id="qeditor" class="form-control" name="custom-question"></textarea>
+				</div>
 				<div class="row">&nbsp;</div>
 				
 				<div class="row">
 					<button class="btn btn-primary" id="show">Show Answer</button>
+					<div class="pull-right">
+						<button type="button" class="btn btn-link" id="edit-question">Edit...</button>
+					</div>
 				</div>
 				
 				<div class="row" style="display:none" id="answer">
 					<hr/>
-					<div id="explanation"></div>
-					<div class="row">&nbsp;</div>
-					<div id="tutorial" class="row text-center"><h4>Tutorial</h4></div>
-					<div id="tutorial-text"></div>
+					<div class="row" id="answer-panel">
+						<div class="col-xs-12">
+							<div class="row" id="answer-text"></div>
+						</div>
+					</div>
+					<div class="row hide" id="answer-editor-panel">
+						<textarea id="answer-editor" class="form-control" name="custom-answer"></textarea>
+					</div>
+					<div class="pull-right">
+						<button type="button" class="btn btn-link" id="edit-answer">Edit...</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -91,6 +84,8 @@
 
     <script src="static/thirdparty/jquery.min.js"></script>
 	<script src="static/thirdparty/jquery.hotkeys.js"></script>
+  	<script src="static/thirdparty/cleditor/jquery.cleditor.min.js"></script>
+  	<script src="static/thirdparty/cleditor/jquery.cleditor.table.min.js"></script>
 	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
 	<script src="static/js/data.js"></script>
 	<script type="text/javascript">
@@ -111,7 +106,9 @@
 	</script>
 	<script type="text/javascript">
 
-		var localStorageKey = 'tutorme.capstone.mastery';
+		var $qeditor, $answereditor;
+		var masteryStorageKey = 'tutorme.capstone.mastery';
+		var editsStorageKey = 'tutorme.capstone.edits';
 		var sectionNum = 0, questionNum = 0;
 
 		function initUI() {
@@ -138,6 +135,15 @@
 			$('#mastery-3').click(function() { selectMastery(3); });
 			$('#mastery-4').click(function() { selectMastery(4); });
 			$('#mastery-5').click(function() { selectMastery(5); });
+
+			var controls = "bold italic underline strikethrough subscript superscript | font size style " +
+		          "color | bullets numbering | outdent " +
+		          "indent | alignleft center alignright | " +
+		          "image link unlink | source";
+			$('#edit-question').click(function() { toggleQuestionEditor(); });
+			$('#edit-answer').click(function() { toggleAnswerEditor(); });
+			$qeditor = $('#qeditor').cleditor({ controls: controls })[0];
+			$answereditor = $('#answer-editor').cleditor({ controls: controls })[0];
 		}
 
 		function gotoDashboard() {
@@ -148,6 +154,54 @@
 			$('#answer').toggle();
 			if ($('#answer').is(':visible')) {
 				$('html,body').animate({scrollTop: $("#answer").offset().top},'fast');
+			}
+		}
+
+		function toggleQuestionEditor() {
+			if ($('#question-panel').is(':visible')) {
+				// Match editor height to question area before we hide it
+				$qeditor.options.height=$('#qtext').height(); $qeditor.$main.height('auto'); $qeditor.refresh()
+
+				// Hide question / choices and show editor
+				$('#question-panel').addClass('hide');
+				$('#qeditor-panel').removeClass('hide');
+				$('#edit-question').text('Save');
+
+				// Set editor text
+				$('#qeditor').val($('#qtext').html());
+				$qeditor.refresh();
+			} else {
+				// Hide editor and show question / choices
+				$('#question-panel').removeClass('hide');
+				$('#qeditor-panel').addClass('hide');
+				$('#edit-question').text('Edit...');
+
+				// Set static text
+				saveQuestionText(sectionNum, questionNum, $('#qeditor').val());
+			}
+		}
+
+		function toggleAnswerEditor() {
+			if ($('#answer-panel').is(':visible')) {
+				// Match editor height to answer area before we hide it
+				$answereditor.options.height=$('#answer-text').height(); $answereditor.$main.height('auto'); $answereditor.refresh()
+
+				// Hide answer and show editor
+				$('#answer-panel').addClass('hide');
+				$('#answer-editor-panel').removeClass('hide');
+				$('#edit-answer').text('Save');
+
+				// Set answer text
+				$('#answer-editor').val($('#answer-text').html());
+				$answereditor.refresh();
+			} else {
+				// Hide editor and show answer
+				$('#answer-panel').removeClass('hide');
+				$('#answer-editor-panel').addClass('hide');
+				$('#edit-answer').text('Edit...');
+
+				// Save edits
+				saveAnswerText(sectionNum, questionNum, $('#answer-editor').val());
 			}
 		}
 
@@ -185,12 +239,12 @@
 		}
 
 		function clearMastery() {
-			localStorage.removeItem(localStorageKey);
+			localStorage.removeItem(masteryStorageKey);
 			selectMastery(0);
 		}
 
 		function readMastery() {
-			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
+			var mastery = JSON.parse(localStorage.getItem(masteryStorageKey) || '{}')
 			var qkey = sectionNum + ',' + questionNum;
 			if (mastery[qkey]) {
 				selectMastery(mastery[qkey]);
@@ -208,7 +262,7 @@
 			}
 
 			var qkey = sectionNum + ',' + questionNum;
-			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
+			var mastery = JSON.parse(localStorage.getItem(masteryStorageKey) || '{}')
 
 			if (n > 0) {
 				mastery[qkey] = n;
@@ -216,11 +270,14 @@
 				delete mastery[qkey];
 			}
 
-			localStorage.setItem(localStorageKey, JSON.stringify(mastery));
+			localStorage.setItem(masteryStorageKey, JSON.stringify(mastery));
 		}
 
 		function showQuestion(data, sectionNum, qnum) {
 			var section = data[sectionNum];
+			var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
+			var editKey = 'q,' + sectionNum + ',' + qnum;
+			var answerKey = 'a,' + sectionNum + ',' + qnum;
 			var i = 0;
 
 			// Breadcrumb text
@@ -240,24 +297,35 @@
 
 			// "Question x of y" and actual question text
 			$('#qnum').text(qnum+1 + ' of ' + section.questions.length)
-			$('#qtext').html(section.questions[qnum].question);
 
-			// Choices
-			var choices = section.questions[qnum].choices;
-			var choiceText = ''
-			for (i in choices) {
-				choiceText += '<p>' + choices[i] + '</p>\n';
+			// Question text and choices
+			if (edits[editKey]) {
+				$('#qtext').html(edits[editKey]);
+			} else {
+				var qtext = section.questions[qnum].question;
+				var choices = section.questions[qnum].choices;
+				var choiceText = ''
+				for (i in choices) {
+					choiceText += '<p>' + choices[i] + '</p>\n';
+				}
+				$('#qtext').html(qtext + choiceText);
 			}
-			$('#qchoices').html(choiceText);
 
 			// Answers with explanations and tutorial section
-			var answers = section.questions[qnum].answers;
-			var answerText = ''
-			for (i in answers) {
-				answerText += answers[i] + '\n';
+			if (edits[answerKey]) {
+				$('#answer-text').html(edits[answerKey]);
+			} else {
+				var tutorialText = section.questions[qnum].tutorial || '<i>See explanations above.</i>';
+				var answers = section.questions[qnum].answers;
+				var answerText = ''
+				for (i in answers) {
+					answerText += answers[i] + '\n';
+				}
+				$('#answer-text').html(
+					answerText + 
+					'<div class="row">&nbsp;</div><div id="tutorial" class="row text-center"><h4>Tutorial</h4></div>' +
+					tutorialText);
 			}
-			$('#explanation').html(answerText);
-			$('#tutorial-text').html(section.questions[qnum].tutorial || '<i>See explanations above.</i>');
 			$('#answer').hide();
 
 			// Clear mastery selector
@@ -272,6 +340,34 @@
 			}
 		}
 
+		function saveQuestionText(sectionNum, qnum, newtext) {
+			var $qtext = $('#qtext');
+			var curtext = $qtext.html();
+			if (curtext != newtext) {
+				var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
+				var editKey = 'q,' + sectionNum + ',' + qnum;
+				if (edits[editKey] != newtext) {
+					edits[editKey] = newtext;
+					localStorage.setItem(editsStorageKey, JSON.stringify(edits));
+				}
+				$qtext.html(newtext);
+			}
+		}
+
+		function saveAnswerText(sectionNum, qnum, newtext) {
+			var $answertext = $('#answer-text');
+			var curtext = $answertext.html();
+			if (curtext != newtext) {
+				var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
+				var editKey = 'a,' + sectionNum + ',' + qnum;
+				if (edits[editKey] != newtext) {
+					edits[editKey] = newtext;
+					localStorage.setItem(editsStorageKey, JSON.stringify(edits));
+				}
+				$answertext.html(newtext);
+			}
+		}
+
 		// Parse URL query params if provided
 		var urlVars = getUrlVars();
 		if (urlVars.section !== undefined && urlVars.q !== undefined) {
@@ -283,11 +379,13 @@
 			}
 		}
 
-		// Set up keyboard shortcuts and button actions
-		initUI();
+		$(document).ready(function() {
+			// Set up keyboard shortcuts and button actions
+			initUI();
 
-		// Show current question
-		showQuestion(data, sectionNum, questionNum);
+			// Show current question
+			showQuestion(data, sectionNum, questionNum);
+		});
 	-->
 	</script>
 </body>
