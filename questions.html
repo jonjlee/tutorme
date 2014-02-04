@@ -52,31 +52,25 @@
 						<div class="row" id="qtext"></div>
 					</div>
 				</div>
-				<div class="row hide" id="qeditor-panel">
-					<textarea id="qeditor" class="form-control" name="custom-question"></textarea>
+				<div class="row hide" id="editor-panel">
+					<textarea id="editor" class="form-control"></textarea>
 				</div>
 				<div class="row">&nbsp;</div>
 				
 				<div class="row">
 					<button class="btn btn-primary" id="show">Show Answer</button>
-					<div class="pull-right">
+					<div id="edit-buttons" class="pull-right">
 						<button type="button" class="btn btn-link" id="edit-question">Edit...</button>
+					</div>
+					<div id="save-buttons" class="pull-right" style="display:none">
+						<button type="button" class="btn btn-link" id="cancel-edit">Cancel</button>
+						<button type="button" class="btn btn-info" id="save-question">Save</button>
 					</div>
 				</div>
 				
 				<div class="row" style="display:none" id="answer">
 					<hr/>
-					<div class="row" id="answer-panel">
-						<div class="col-xs-12">
-							<div class="row" id="answer-text"></div>
-						</div>
-					</div>
-					<div class="row hide" id="answer-editor-panel">
-						<textarea id="answer-editor" class="form-control" name="custom-answer"></textarea>
-					</div>
-					<div class="pull-right">
-						<button type="button" class="btn btn-link" id="edit-answer">Edit...</button>
-					</div>
+					<div class="row" id="answer-text"></div>
 				</div>
 			</div>
 		</div>
@@ -106,14 +100,23 @@
 	</script>
 	<script type="text/javascript">
 
-		var $qeditor, $answereditor;
-		var masteryStorageKey = 'tutorme.capstone.mastery';
-		var editsStorageKey = 'tutorme.capstone.edits';
+		var $qtext, $answer, $answerText, $editor;
+
+		var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
+		var EDITS_STORAGE_KEY = 'tutorme.capstone.edits';
+		var EDITOR_SECTION_DELIMITER = '<center style="font-weight: normal;"><h2>Answer</h2></center>'
+		var EDITS_GFORM_URL = 'https://docs.google.com/forms/d/1VW7Hi-yxKKMBt5LN6YbIQ4JiP_EQG25R73a3I0zVlh0/formResponse';
+		var EDITS_GFORM_ID = 'entry.1916899601';
+		var EDITS_GFORM_TEXT = 'entry.1238214025';
+
 		var sectionNum = 0, questionNum = 0;
 
 		function initUI() {
+			$qtext = $('#qtext');
+			$answer = $('#answer');
+			$answerText = $('#answer-text');
+
 			$(document).bind('keypress', 's', toggleAnswer);
-			$(document).bind('keypress', 't', showTutorial);
 			$(document).bind('keypress', 'ctrl+0', clearMastery);
 			$(document).bind('keypress', '0', selectMastery.bind(this, -1));
 			$(document).bind('keypress', '1', selectMastery.bind(this, 1));
@@ -136,14 +139,15 @@
 			$('#mastery-4').click(function() { selectMastery(4); });
 			$('#mastery-5').click(function() { selectMastery(5); });
 
+			$('#edit-question').click(function() { toggleEditor(); });
+			$('#save-question').click(function() { toggleEditor(); });
+			$('#cancel-edit').click(function() { hideEditor(); });
+
 			var controls = "bold italic underline strikethrough subscript superscript | font size style " +
 		          "color | bullets numbering | outdent " +
 		          "indent | alignleft center alignright | " +
 		          "image link unlink | source";
-			$('#edit-question').click(function() { toggleQuestionEditor(); });
-			$('#edit-answer').click(function() { toggleAnswerEditor(); });
-			$qeditor = $('#qeditor').cleditor({ controls: controls })[0];
-			$answereditor = $('#answer-editor').cleditor({ controls: controls })[0];
+			$editor = $('#editor').cleditor({ controls: controls })[0];
 		}
 
 		function gotoDashboard() {
@@ -151,65 +155,85 @@
 		}
 
 		function toggleAnswer() {
-			$('#answer').toggle();
-			if ($('#answer').is(':visible')) {
-				$('html,body').animate({scrollTop: $("#answer").offset().top},'fast');
+			$answer.toggle();
+			if ($answer.is(':visible')) {
+				$('html,body').animate({scrollTop: $answer.offset().top}, 'fast');
 			}
 		}
 
-		function toggleQuestionEditor() {
+		function toggleEditor() {
 			if ($('#question-panel').is(':visible')) {
 				// Match editor height to question area before we hide it
-				$qeditor.options.height=$('#qtext').height(); $qeditor.$main.height('auto'); $qeditor.refresh()
+				$editor.options.height=$qtext.height() + 75; $editor.$main.height('auto'); $editor.refresh()
 
-				// Hide question / choices and show editor
+				// Hide question, choices, answers and show editor
 				$('#question-panel').addClass('hide');
-				$('#qeditor-panel').removeClass('hide');
-				$('#edit-question').text('Save');
+				$('#editor-panel').removeClass('hide');
+				$('#edit-buttons').hide()
+				$('#save-buttons').show();
+				$answer.hide();
 
 				// Set editor text
-				$('#qeditor').val($('#qtext').html());
-				$qeditor.refresh();
+				refreshEditor();
 			} else {
-				// Hide editor and show question / choices
-				$('#question-panel').removeClass('hide');
-				$('#qeditor-panel').addClass('hide');
-				$('#edit-question').text('Edit...');
-
-				// Set static text
-				saveQuestionText(sectionNum, questionNum, $('#qeditor').val());
+				hideEditor();
+				saveEdits(sectionNum, questionNum, $('#editor').val());
 			}
 		}
 
-		function toggleAnswerEditor() {
-			if ($('#answer-panel').is(':visible')) {
-				// Match editor height to answer area before we hide it
-				$answereditor.options.height=$('#answer-text').height(); $answereditor.$main.height('auto'); $answereditor.refresh()
-
-				// Hide answer and show editor
-				$('#answer-panel').addClass('hide');
-				$('#answer-editor-panel').removeClass('hide');
-				$('#edit-answer').text('Save');
-
-				// Set answer text
-				$('#answer-editor').val($('#answer-text').html());
-				$answereditor.refresh();
-			} else {
-				// Hide editor and show answer
-				$('#answer-panel').removeClass('hide');
-				$('#answer-editor-panel').addClass('hide');
-				$('#edit-answer').text('Edit...');
-
-				// Save edits
-				saveAnswerText(sectionNum, questionNum, $('#answer-editor').val());
-			}
+		function hideEditor() {
+			// Hide editor and show question / choices
+			$('#question-panel').removeClass('hide');
+			$('#editor-panel').addClass('hide');
+			$('#edit-buttons').show();
+			$('#save-buttons').hide();
 		}
 
-		function showTutorial() {
-			if (!$('#answer').is(':visible')) {
-				$('#answer').show();
+		function refreshEditor() {
+			$('#editor').val($qtext.html() + EDITOR_SECTION_DELIMITER + $answerText.html());
+			$editor.refresh();
+		}
+
+		function form_escape(str) {
+			return str.replace(/"/g, '\\"').replace(/&/, '&amp;');
+		}
+
+		function executeEdit($div, text, cache, key) {
+			var updated = false;
+			if ($div.html() != text) {
+				// Set local store and store whether or not it has changed
+				updated = (cache[key] != text);
+				cache[key] = text;
+
+				// Update page content
+				$div.html(text);
+	            
+				// Send updates to google form to persist
+	            $.ajax({
+	                type: 'POST',
+	                url: EDITS_GFORM_URL,
+	                data: EDITS_GFORM_ID + '=' + key + '&' + EDITS_GFORM_TEXT + '=' + escape(text),
+	                complete: function() {}
+	            });
 			}
-			$('html,body').animate({scrollTop: $("#tutorial").offset().top},'fast');
+			return updated;
+		}
+
+		function saveEdits(sectionNum, qnum, editorText) {
+			x= editorText
+			var editorText = editorText.split(EDITOR_SECTION_DELIMITER);
+			if (editorText.length < 2) {
+				return alert('Could not save because Answer section was deleted.');
+			}
+
+			// Save question and answer/tutorial sections on page and in local store
+			var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
+			var questionUpdated = executeEdit($qtext, editorText[0], edits, 'q,' + sectionNum + ',' + qnum);
+			var answerUpdated = executeEdit($answerText, editorText[1], edits, 'a,' + sectionNum + ',' + qnum);
+
+			if (questionUpdated || answerUpdated) {
+				localStorage.setItem(EDITS_STORAGE_KEY, JSON.stringify(edits));
+			}
 		}
 
 		function prevQuestion() {
@@ -239,12 +263,12 @@
 		}
 
 		function clearMastery() {
-			localStorage.removeItem(masteryStorageKey);
+			localStorage.removeItem(MASTERY_STORAGE_KEY);
 			selectMastery(0);
 		}
 
 		function readMastery() {
-			var mastery = JSON.parse(localStorage.getItem(masteryStorageKey) || '{}')
+			var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
 			var qkey = sectionNum + ',' + questionNum;
 			if (mastery[qkey]) {
 				selectMastery(mastery[qkey]);
@@ -262,7 +286,7 @@
 			}
 
 			var qkey = sectionNum + ',' + questionNum;
-			var mastery = JSON.parse(localStorage.getItem(masteryStorageKey) || '{}')
+			var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
 
 			if (n > 0) {
 				mastery[qkey] = n;
@@ -270,12 +294,12 @@
 				delete mastery[qkey];
 			}
 
-			localStorage.setItem(masteryStorageKey, JSON.stringify(mastery));
+			localStorage.setItem(MASTERY_STORAGE_KEY, JSON.stringify(mastery));
 		}
 
 		function showQuestion(data, sectionNum, qnum) {
 			var section = data[sectionNum];
-			var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
+			var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
 			var editKey = 'q,' + sectionNum + ',' + qnum;
 			var answerKey = 'a,' + sectionNum + ',' + qnum;
 			var i = 0;
@@ -300,7 +324,7 @@
 
 			// Question text and choices
 			if (edits[editKey]) {
-				$('#qtext').html(edits[editKey]);
+				$qtext.html(edits[editKey]);
 			} else {
 				var qtext = section.questions[qnum].question;
 				var choices = section.questions[qnum].choices;
@@ -308,12 +332,12 @@
 				for (i in choices) {
 					choiceText += '<p>' + choices[i] + '</p>\n';
 				}
-				$('#qtext').html(qtext + choiceText);
+				$qtext.html(qtext + choiceText);
 			}
 
 			// Answers with explanations and tutorial section
 			if (edits[answerKey]) {
-				$('#answer-text').html(edits[answerKey]);
+				$answerText.html(edits[answerKey]);
 			} else {
 				var tutorialText = section.questions[qnum].tutorial || '<i>See explanations above.</i>';
 				var answers = section.questions[qnum].answers;
@@ -321,14 +345,17 @@
 				for (i in answers) {
 					answerText += answers[i] + '\n';
 				}
-				$('#answer-text').html(
+				$answerText.html(
 					answerText + 
-					'<div class="row">&nbsp;</div><div id="tutorial" class="row text-center"><h4>Tutorial</h4></div>' +
+					'<div class="row">&nbsp;</div><div class="row text-center"><h4>Tutorial</h4></div>' +
 					tutorialText);
 			}
-			$('#answer').hide();
+			$answer.hide();
 
-			// Clear mastery selector
+			// Make sure question is show and editor is hidden
+			hideEditor();
+
+			// Update mastery selector
 			readMastery();
 			
 			// Update URL
@@ -337,34 +364,6 @@
 				if ((urlVars.section != '' + (sectionNum+1)) || urlVars.q != '' + (qnum+1)) {
 					window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1));
 				}
-			}
-		}
-
-		function saveQuestionText(sectionNum, qnum, newtext) {
-			var $qtext = $('#qtext');
-			var curtext = $qtext.html();
-			if (curtext != newtext) {
-				var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
-				var editKey = 'q,' + sectionNum + ',' + qnum;
-				if (edits[editKey] != newtext) {
-					edits[editKey] = newtext;
-					localStorage.setItem(editsStorageKey, JSON.stringify(edits));
-				}
-				$qtext.html(newtext);
-			}
-		}
-
-		function saveAnswerText(sectionNum, qnum, newtext) {
-			var $answertext = $('#answer-text');
-			var curtext = $answertext.html();
-			if (curtext != newtext) {
-				var edits = JSON.parse(localStorage.getItem(editsStorageKey) || '{}');
-				var editKey = 'a,' + sectionNum + ',' + qnum;
-				if (edits[editKey] != newtext) {
-					edits[editKey] = newtext;
-					localStorage.setItem(editsStorageKey, JSON.stringify(edits));
-				}
-				$answertext.html(newtext);
 			}
 		}
 
