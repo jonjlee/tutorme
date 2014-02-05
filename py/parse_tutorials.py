@@ -19,8 +19,9 @@ EDITS_GFORM_KEY = '0ArXWeP4vbbvJdExxRmtfOU5janpMMVU4N2lXWlQxcVE'
 RE_QUESTION_SECTION = re.compile(u'Part\s+[0-9]') 
 RE_CHOICES_SECTION = re.compile(u'([A-Z]|[0-9]+)\s*\.\xa0+')
 RE_ANSWER_SECTION = re.compile(u'Answers\s*\.?|The correct answer is|Answer\s+[A-Z]\s+is|Answers?\s+[A-Z]\s+and\s+[A-Z]\s|[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+|[0-9]+\.[\xa0\s]+[A-Z]|[0-9]+\.[\xa0\s]+[A-Z]\.')
+RE_MATCHING_ANSWER = re.compile(u'[A-Z]\.[\xa0\s]+[0-9]+\.[\xa0\s]+|[0-9]+\.[\xa0\s]+[A-Z]\.?')
 RE_IMAGE_SRC = re.compile('^.*\/([^\/]+)$')
-RE_PAGEBREAK = re.compile('break-before:always')
+RE_PAGEBREAK = re.compile('page-break-before:always')
 
 def isempty(obj):
 	return (istag(obj) and len(obj.contents) == 0) or (obj == '')
@@ -67,13 +68,15 @@ def parse(soup):
 	'''
 	sections = []
 
+	# body is divided into several divs. Each div contains many p elements.
+	# If there is no containing div, then just use body.
 	divs = soup.body.find_all('div', recursive=False)
 	if not divs or not divs[0].text: divs = soup.body
-	data = ''
-	tutorial = ''
-	section, obj = None, None
+
+	data, tutorial, section, obj = '', '', None, None
 	empty_lines, new_page = 0, False
 	state = 'start'
+
 	for div in divs:
 		tags = div.find_all(recursive=False)
 		numtags = len(tags)
@@ -82,10 +85,8 @@ def parse(soup):
 		for i in xrange(0, numtags-1):
 			# Set prev, tag, and next to point to corresponding tags
 			tag = tags[i]
-			if i == 0: prev = None
-			else: prev = tags[i-1]
 			if i == numtags-1: next = None
-			else: prev = tags[i+1]
+			else: next = tags[i+1]
 
 			# Ignore any content in root div that isn't a tag
 			if not istag(tag): continue
@@ -110,11 +111,14 @@ def parse(soup):
 			# Remove class and style attributes and extraneous namespaced tags
 			html = cleantag(tag).prettify(formatter='html')
 
+			if tag.name == 'div' and not tag.table:
+				sys.stderr.write('Unexpected <div> found at tag %d: "%s...\n"' % (i, text[:100]))
+
 			# Detect any new state transitions
 			if state != 'section' and (is_section or tag.select('span.Section')):
 				# Store the last question before starting a new section
 				if 'answers' in state:
-					obj['answer'] = data
+					obj['answer'] = data + '\n' + tutorial
 					section['questions'].append(obj)
 
 				data = ''
@@ -131,27 +135,30 @@ def parse(soup):
 
 			elif state == 'question':
 				if new_page:
-					if is_answers_list or RE_ANSWER_SECTION.match(text):
+					obj['question'] = data
+					tutorial, data = '', ''
+
+					if is_answers_list or RE_ANSWER_SECTION.match(text) or RE_MATCHING_ANSWER.match(text):
 						state = 'answers'
 					else:
 						state = 'tutorial'
 
-					obj['question'] = data
-					tutorial, data = '', ''
-
 			elif state == 'tutorial':
 				if new_page:
 					if data: tutorial = '<div class="row">&nbsp;</div><div class="row text-center"><h4>Tutorial</h4></div>\n' + data
-					data = ''
-					state = 'answers'
+					data, state = '', 'answers'
 
 			elif state == 'answers':
 				if new_page:
 					obj['answer'] = data + '\n' + tutorial
 					section['questions'].append(obj)
-					obj = {'question': '', 'answer': ''}
-					data = ''
-					state = 'question'
+					obj, data, state = {'question': '', 'answer': ''}, '', 'question'
+
+			# Safe-guard to recover in the event that a page break caused a frame-shift. Detects start of answer section.
+			if state != 'answers' and new_page and RE_ANSWER_SECTION.match(text):
+				sys.stderr.write('Frame-shift detected at tag %d: "%s ... %s". Recovering from %s to answer section.\n' % (i, prev.text[:20], text[-20:], state))
+				state = 'answers'
+				data, state = '', 'answers'
 
 			# Process tag given current state
 			if state == 'section':
@@ -173,13 +180,15 @@ def parse(soup):
 
 			# Processed non-blank element, so next element no longer starts a new page
 			new_page = False
+			prev = tag
 
 
 	# Save the last question and last section
 	if 'answers' in state:
-		obj['answer'] = data
+		obj['answer'] = data + '\n' + tutorial
 		section['questions'].append(obj)
-	if section: sections.append(section)
+	if section:
+		sections.append(section)
 
 	return sections
 
@@ -233,8 +242,8 @@ def main(source_file='Tutorials.htm'):
 	sys.stderr.write('Parsing HTML...\n')
 	obj = parse(soup)
 
-	# sys.stderr.write('Reading edits from Google Sheet...\n')
-	# obj = apply_edits(obj, EDITS_GFORM_KEY)
+	sys.stderr.write('Reading edits from Google Sheet...\n')
+	obj = apply_edits(obj, EDITS_GFORM_KEY)
 	
 	print u'data = %s' % json.dumps(obj)
 	
