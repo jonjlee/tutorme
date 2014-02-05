@@ -28,9 +28,9 @@
 					<div class="col-xs-8">
 						<div class="row">
 							<h3> 
-								<span id="prev"><i class="arrow small glyphicon glyphicon-chevron-left"></i></span>
+								<span class="prev"><i class="arrow small glyphicon glyphicon-chevron-left"></i></span>
 								Question <span id="qnum"></span>
-								<span id="next"><i class="arrow small glyphicon glyphicon-chevron-right"></i></span>
+								<span class="next"><i class="arrow small glyphicon glyphicon-chevron-right"></i></span>
 							</h3>
 						</div>
 					</div>
@@ -71,6 +71,14 @@
 				<div class="row" style="display:none" id="answer">
 					<hr/>
 					<div class="row" id="answer-text"></div>
+					<div class="row">
+						<div class="col-xs-12">
+							<ul class="pager">
+								<li><a class="prev" href="#"><i class="arrow small glyphicon glyphicon-chevron-left"></i> Previous</a></li>
+								<li><a class="next" href="#">Next <i class="arrow small glyphicon glyphicon-chevron-right"></i></a></li>
+							</ul>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -130,8 +138,8 @@
 			$(document).bind('keydown', 'shift+right', nextSection);
 			$(document).bind('keypress', 'shift+return', gotoDashboard);
 
-			$('#prev').click(function() { prevQuestion(); });
-			$('#next').click(function() { nextQuestion(); });
+			$('.prev').click(function() { prevQuestion(); });
+			$('.next').click(function() { nextQuestion(); });
 			$('#show').click(function() { toggleAnswer(); });
 			$('#mastery-1').click(function() { selectMastery(1); });
 			$('#mastery-2').click(function() { selectMastery(2); });
@@ -309,14 +317,14 @@
 
 			// Show/hide prev/next question arrows
 			if (qnum == 0) {
-				$('#prev').hide();
-				$('#next').show();
+				$('.prev').hide();
+				$('.next').show();
 			} else if (qnum < section.questions.length-1) {
-				$('#prev').show();
-				$('#next').show();
+				$('.prev').show();
+				$('.next').show();
 			} else {
-				$('#prev').show();
-				$('#next').hide();
+				$('.prev').show();
+				$('.next').hide();
 			}
 
 			// "Question x of y" and actual question text
@@ -329,7 +337,7 @@
 			// Answers with explanations and tutorial section
 			var answerText = edits[answerKey] || section.questions[qnum].answer;
 			$answerText.html(answerText);
-			// $answer.hide();
+			$answer.hide();
 
 			// Make sure question is show and editor is hidden
 			hideEditor();
