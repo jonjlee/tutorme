@@ -323,34 +323,13 @@
 			$('#qnum').text(qnum+1 + ' of ' + section.questions.length)
 
 			// Question text and choices
-			if (edits[editKey]) {
-				$qtext.html(edits[editKey]);
-			} else {
-				var qtext = section.questions[qnum].question;
-				var choices = section.questions[qnum].choices;
-				var choiceText = ''
-				for (i in choices) {
-					choiceText += '<p>' + choices[i] + '</p>\n';
-				}
-				$qtext.html(qtext + choiceText);
-			}
+			var questionText = edits[editKey] || section.questions[qnum].question;
+			$qtext.html(questionText);
 
 			// Answers with explanations and tutorial section
-			if (edits[answerKey]) {
-				$answerText.html(edits[answerKey]);
-			} else {
-				var tutorialText = section.questions[qnum].tutorial || '<i>See explanations above.</i>';
-				var answers = section.questions[qnum].answers;
-				var answerText = ''
-				for (i in answers) {
-					answerText += answers[i] + '\n';
-				}
-				$answerText.html(
-					answerText + 
-					'<div class="row">&nbsp;</div><div class="row text-center"><h4>Tutorial</h4></div>' +
-					tutorialText);
-			}
-			$answer.hide();
+			var answerText = edits[answerKey] || section.questions[qnum].answer;
+			$answerText.html(answerText);
+			// $answer.hide();
 
 			// Make sure question is show and editor is hidden
 			hideEditor();

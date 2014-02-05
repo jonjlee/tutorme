@@ -64,6 +64,14 @@
 			}
 		}
 
+		function numQuestions() {
+			var n = 0;
+			for (var i in data) {
+				n += data[i].questions.length;
+			}
+			return n;
+		}
+
 		// Set up keyboard shortcuts and button actions
 		initUI();
 	-->
