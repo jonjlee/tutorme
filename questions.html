@@ -350,6 +350,9 @@
 				var urlVars = getUrlVars();
 				if ((urlVars.section != '' + (sectionNum+1)) || urlVars.q != '' + (qnum+1)) {
 					window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1));
+
+					// Also post page view to google analytics
+					if (typeof _gaq !== 'undefined') { _gaq.push(['_trackPageview', window.location.pathname]); }
 				}
 			}
 		}
