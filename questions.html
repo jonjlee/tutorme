@@ -352,7 +352,7 @@
 					window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1));
 
 					// Also post page view to google analytics
-					if (typeof _gaq !== 'undefined') { _gaq.push(['_trackPageview', window.location.pathname + window.location.search]); }
+					if (typeof ga !== 'undefined') { ga('send', 'pageview'); }
 				}
 			}
 		}
