@@ -86,6 +86,7 @@
 
     <script src="static/thirdparty/jquery.min.js"></script>
 	<script src="static/thirdparty/jquery.hotkeys.js"></script>
+	<script src="static/thirdparty/jquery.textHighlighter.js"></script>
   	<script src="static/thirdparty/cleditor/jquery.cleditor.min.js"></script>
   	<script src="static/thirdparty/cleditor/jquery.cleditor.table.min.js"></script>
 	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
@@ -151,11 +152,18 @@
 			$('#save-question').click(function() { toggleEditor(); });
 			$('#cancel-edit').click(function() { hideEditor(); });
 
+			// Initialize question / answer editor
 			var controls = "bold italic underline strikethrough subscript superscript | font size style " +
 		          "color | bullets numbering | outdent " +
 		          "indent | alignleft center alignright | " +
 		          "image link unlink | source";
 			$editor = $('#editor').cleditor({ controls: controls })[0];
+
+			// Initialize text highlighter plugin and remove highlights on click
+			$qtext.textHighlighter();
+			$qtext.on('click', '.highlighted', function() {
+              $qtext.getHighlighter().removeHighlights(this);
+          });
 		}
 
 		function gotoDashboard() {
