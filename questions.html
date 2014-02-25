@@ -113,6 +113,7 @@
 
 		var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
 		var EDITS_STORAGE_KEY = 'tutorme.capstone.edits';
+		var HILITES_STORAGE_KEY = 'tutorme.capstone.highlights';
 		var EDITOR_SECTION_DELIMITER = '<center style="font-weight: normal;"><h2>Answer</h2></center>'
 		var EDITS_GFORM_URL = 'https://docs.google.com/forms/d/1VW7Hi-yxKKMBt5LN6YbIQ4JiP_EQG25R73a3I0zVlh0/formResponse';
 		var EDITS_GFORM_ID = 'entry.1916899601';
@@ -160,10 +161,11 @@
 			$editor = $('#editor').cleditor({ controls: controls })[0];
 
 			// Initialize text highlighter plugin and remove highlights on click
-			$qtext.textHighlighter();
-			$qtext.on('click', '.highlighted', function() {
-              $qtext.getHighlighter().removeHighlights(this);
-          });
+			var save = this.deferSaveHighlights.bind(this);
+			$qtext.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+			$qtext.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+			$answerText.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+			$answerText.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
 		}
 
 		function gotoDashboard() {
@@ -250,6 +252,42 @@
 			if (questionUpdated || answerUpdated) {
 				localStorage.setItem(EDITS_STORAGE_KEY, JSON.stringify(edits));
 			}
+		}
+
+		function deferSaveHighlights(highlights, range) {
+			// Wait for current call stack to clear before calling saveHighlights(). This allows for
+			// highlights to be applied / removed by the JQuery TextHighlighter plugin after it triggers
+			// the respective event.
+			setTimeout(this.saveHighlights.bind(this, highlights, range), 1);
+			return true;
+		}
+
+		function saveHighlights(highlights, range) {
+			// Retrieve currently stored highlights
+			var qkey = 'q,' + sectionNum + ',' + questionNum;
+			var akey = 'a,' + sectionNum + ',' + questionNum;
+			var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
+
+			// Serialize currently highlighted text
+			var qhilites = this.$qtext.getHighlighter().serializeHighlights();
+			var ahilites = this.$answerText.getHighlighter().serializeHighlights();
+			
+			// Determine if anything has been updated, and store new highlights
+			var qupdated = (hilites[qkey] != qhilites);
+			var aupdated = (hilites[akey] != qhilites);
+			hilites[qkey] = qhilites;
+			hilites[akey] = ahilites;
+
+			// Save highlights
+			if (qupdated || aupdated) { localStorage.setItem(HILITES_STORAGE_KEY, JSON.stringify(hilites)); }
+		}
+
+		function readHighlights() {
+			var qkey = 'q,' + sectionNum + ',' + questionNum;
+			var akey = 'a,' + sectionNum + ',' + questionNum;
+			var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
+			if (hilites[qkey]) { $qtext.getHighlighter().deserializeHighlights(hilites[qkey]); }
+			if (hilites[akey]) { $answerText.getHighlighter().deserializeHighlights(hilites[akey]); }
 		}
 
 		function prevQuestion() {
@@ -352,6 +390,9 @@
 
 			// Update mastery selector
 			readMastery();
+
+			// Restore highlights
+			readHighlights();
 			
 			// Update URL
 			if (window.history) {
