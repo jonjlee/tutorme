@@ -70,7 +70,20 @@
 				
 				<div class="row" style="display:none" id="answer">
 					<hr/>
-					<div class="row" id="answer-text"></div>
+					<div class="row panel">
+						<div class="col-xs-12 text-center" id="show-notes"><small><a class="btn btn-link">Show Notes</a></small></div>
+						<div class="col-md-12" id="answer-text"></div>
+						<div class="col-md-3 hidden-sm hidden-xs" id="notes-panel" style="display:none;">
+							<div class="affix-notes" id="notes" style="display:none;">
+								<div class="row panel panel-default">
+									<div class="panel-heading" style="padding: 3px 10px">
+										Notes
+										<button class="btn btn-link btn-xs pull-right" id="hide-notes">Hide</button>
+									</div>
+									<textarea id="notes-editor"></textarea>
+								</div>
+						</div>
+					</div>
 					<div class="row">
 						<div class="col-xs-12">
 							<ul class="pager">
@@ -112,6 +125,7 @@
 		var $qtext, $answer, $answerText, $editor;
 
 		var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
+		var NOTES_STORAGE_KEY = 'tutorme.capstone.notes';
 		var EDITS_STORAGE_KEY = 'tutorme.capstone.edits';
 		var HILITES_STORAGE_KEY = 'tutorme.capstone.highlights';
 		var EDITOR_SECTION_DELIMITER = '<center style="font-weight: normal;"><h2>Answer</h2></center>'
@@ -125,8 +139,12 @@
 			$qtext = $('#qtext');
 			$answer = $('#answer');
 			$answerText = $('#answer-text');
+			$notesPanel = $('#notes-panel');
+			$notes = $('#notes');
+			$notesEditor = $('#notes-editor');
 
 			$(document).bind('keypress', 's', toggleAnswer);
+			$(document).bind('keypress', 'n', toggleNotes);
 			$(document).bind('keypress', 'ctrl+0', clearMastery);
 			$(document).bind('keypress', '0', selectMastery.bind(this, -1));
 			$(document).bind('keypress', '1', selectMastery.bind(this, 1));
@@ -153,12 +171,21 @@
 			$('#save-question').click(function() { toggleEditor(); });
 			$('#cancel-edit').click(function() { hideEditor(); });
 
+			$('#show-notes').click(function() { showNotes(); });
+			$('#hide-notes').click(function() { hideNotes(); });
+
 			// Initialize question / answer editor
 			var controls = "bold italic underline strikethrough subscript superscript | font size style " +
 		          "color | bullets numbering | outdent " +
 		          "indent | alignleft center alignright | " +
 		          "image link unlink | source";
 			$editor = $('#editor').cleditor({ controls: controls })[0];
+
+			var notes_controls = "bold italic underline | size " +
+		          "color | bullets numbering";
+			$notesEditor = $('#notes-editor').cleditor({ controls: notes_controls, height: 300 })[0];
+			$notesEditor.change(saveNotes);
+			$notes.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
 
 			// Initialize text highlighter plugin and remove highlights on click
 			var save = this.deferSaveHighlights.bind(this);
@@ -172,10 +199,53 @@
 			window.location.href = "index.html";
 		}
 
+		function toggleNotes() {
+			if ($notes.is(':visible')) {
+				hideNotes();
+			} else {
+				showNotes();
+			}
+		}
+
+		function showNotes() {
+			$answerText.removeClass('col-md-12').addClass('col-md-9');
+			$('#show-notes').hide();
+			$notesPanel.show();
+			$notes.show();
+		}
+
+		function hideNotes() {
+			$answerText.removeClass('col-md-9').addClass('col-md-12');
+			$('#show-notes').show();
+			$notesPanel.hide();
+			$notes.hide();
+		}
+
+		function saveNotes() {
+			var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
+			var qkey = 'q,' + sectionNum + ',' + questionNum;
+			var note = $('#notes-editor').val();
+			if (notes[qkey] != note) {
+				notes[qkey] = note;
+				localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+			}
+		}
+
+		function restoreNotes() {
+			var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
+			var qkey = 'q,' + sectionNum + ',' + questionNum;
+			var note = notes[qkey] || '';
+			$('#notes-editor').val(note);
+		}
+
 		function toggleAnswer() {
 			$answer.toggle();
 			if ($answer.is(':visible')) {
-				$('html,body').animate({scrollTop: $answer.offset().top}, 'fast');
+				$('html,body').animate({scrollTop: $answer.offset().top - 250}, 'fast');
+				
+				// Update notes editor
+			    $notes.width($notes.parent().width());
+				$notesEditor.refresh();
 			}
 		}
 
@@ -238,7 +308,6 @@
 		}
 
 		function saveEdits(sectionNum, qnum, editorText) {
-			x= editorText
 			var editorText = editorText.split(EDITOR_SECTION_DELIMITER);
 			if (editorText.length < 2) {
 				return alert('Could not save because Answer section was deleted.');
@@ -391,9 +460,10 @@
 			// Update mastery selector
 			readMastery();
 
-			// Restore highlights
+			// Restore notes & highlights
+			restoreNotes();
 			readHighlights();
-			
+
 			// Update URL
 			if (window.history) {
 				var urlVars = getUrlVars();

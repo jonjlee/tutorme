@@ -19,6 +19,13 @@ div#main {
 	border-right: 5px solid black;
 	border-bottom: 5px solid black;
 }
+div#notes.affix {
+	top: 10px;
+}
+div#notes textarea {
+	width: 100%;
+	border: 1px solid #eeeeee;
+}
 div#qchoices {
 	padding-left: 20px;
 }
