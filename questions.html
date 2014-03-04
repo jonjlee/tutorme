@@ -156,6 +156,7 @@
 			$(document).bind('keydown', 'right', nextQuestion);
 			$(document).bind('keydown', 'shift+left', prevSection);
 			$(document).bind('keydown', 'shift+right', nextSection);
+			$(document).bind('keypress', 'return', nextQuestion);
 			$(document).bind('keypress', 'shift+return', gotoDashboard);
 
 			$('.prev').click(function() { prevQuestion(); });
