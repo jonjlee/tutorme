@@ -70,7 +70,7 @@
 				
 				<div class="row" style="display:none" id="answer">
 					<hr/>
-					<div class="row panel">
+					<div class="row">
 						<div class="col-xs-12 text-center" id="show-notes"><small><a class="btn btn-link">Show Notes</a></small></div>
 						<div class="col-md-12" id="answer-text"></div>
 						<div class="col-md-3 hidden-sm hidden-xs" id="notes-panel" style="display:none;">
@@ -145,7 +145,15 @@
 
 			$(document).bind('keypress', 's', toggleAnswer);
 			$(document).bind('keypress', 'n', toggleNotes);
+			$(document).bind('keypress', 'ctrl+d', toggleDark);
 			$(document).bind('keypress', 'ctrl+0', clearMastery);
+			$(document).bind('keypress', 'a', selectOption.bind(this, 0));
+			$(document).bind('keypress', 'b', selectOption.bind(this, 1));
+			$(document).bind('keypress', 'c', selectOption.bind(this, 2));
+			$(document).bind('keypress', 'd', selectOption.bind(this, 3));
+			$(document).bind('keypress', 'e', selectOption.bind(this, 4));
+			$(document).bind('keypress', 'f', selectOption.bind(this, 5));
+			$(document).bind('keypress', 'g', selectOption.bind(this, 6));
 			$(document).bind('keypress', '0', selectMastery.bind(this, -1));
 			$(document).bind('keypress', '1', selectMastery.bind(this, 1));
 			$(document).bind('keypress', '2', selectMastery.bind(this, 2));
@@ -198,6 +206,14 @@
 
 		function gotoDashboard() {
 			window.location.href = "index.html";
+		}
+
+		function toggleDark() {
+			if ($('#main').css('background-color') == 'rgb(230, 230, 230)') {
+				$('#main').css('background-color', 'white');
+			} else {
+				$('#main').css('background-color', 'rgb(230, 230, 230)');
+			}
 		}
 
 		function toggleNotes() {
@@ -386,6 +402,10 @@
 			}
 		}
 
+		function selectOption(opt) {
+			$($('input')[opt]).prop('checked', true);
+		}
+
 		function clearMastery() {
 			localStorage.removeItem(MASTERY_STORAGE_KEY);
 			selectMastery(0);
@@ -446,8 +466,14 @@
 			// "Question x of y" and actual question text
 			$('#qnum').text(qnum+1 + ' of ' + section.questions.length)
 
-			// Question text and choices
+			// Question text and choices. Add radio button before each choice if we can. Don't add radio
+			// button for matching questions (those with choices A-Z. and 1-9.) or multiple part questions
+			// (those with more than one A. answer), which mess up the A-Z shortcut keys.
 			var questionText = edits[editKey] || section.questions[qnum].question;
+			if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
+					(!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
+				questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input type="radio" name="opt"></input> &nbsp;&nbsp; $1');
+			}
 			$qtext.html(questionText);
 
 			// Answers with explanations and tutorial section
