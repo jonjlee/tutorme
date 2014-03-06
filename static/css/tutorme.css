@@ -8,6 +8,9 @@ html {
 body {
 	background-color: inherit;
 }
+body.modal-open {
+	overflow: hidden;
+}
 div#main {
 	background-color: white;
 	padding: 30px 40px 20px 40px;
