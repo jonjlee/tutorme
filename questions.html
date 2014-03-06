@@ -209,10 +209,12 @@
 		}
 
 		function toggleDark() {
-			if ($('#main').css('background-color') == 'rgb(230, 230, 230)') {
+			if ($('#main').css('background-color') == 'rgb(220, 220, 220)') {
+				$('body').css('background', 'url(../img/bkg3.jpg) no-repeat center center fixed');
 				$('#main').css('background-color', 'white');
 			} else {
-				$('#main').css('background-color', 'rgb(230, 230, 230)');
+				$('body').css('background', 'rgb(50, 50, 50)');
+				$('#main').css('background-color', 'rgb(220, 220, 220)');
 			}
 		}
 
