@@ -127,7 +127,7 @@
                                         Notes
                                         <button class="btn btn-link btn-xs pull-right" id="hide-notes">Hide</button>
                                     </div>
-                                    <textarea id="notes-editor"></textarea>
+                                    <div id="notes-editor" contenteditable="true"></div>
                                 </div>
                         </div>
                     </div>
@@ -150,6 +150,7 @@
     <script src="static/thirdparty/cleditor/jquery.cleditor.min.js"></script>
     <script src="static/thirdparty/cleditor/jquery.cleditor.table.min.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/thirdparty/bootstrap-wysiwyg.js"></script>
     <script src="static/js/data.js"></script>
     <script type="text/javascript">
     <!--
@@ -232,8 +233,10 @@
 
             var notes_controls = "bold italic underline | size " +
                   "color | bullets numbering";
-            $notesEditor = $('#notes-editor').cleditor({ controls: notes_controls, height: 300 })[0];
-            $notesEditor.change(saveNotes);
+            // $notesEditor = $('#notes-editor').cleditor({ controls: notes_controls, height: 300 })[0];
+            $notesEditor.wysiwyg();
+            $notesEditor.on('input', saveNotes);
+            $notesEditor.keydown(handleNotesKeydown);
             $notes.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
 
             // Initialize text highlighter plugin and remove highlights on click
@@ -348,7 +351,7 @@
         function saveNotes() {
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
             var qkey = 'q,' + sectionNum + ',' + questionNum;
-            var note = $('#notes-editor').val();
+            var note = $notesEditor.cleanHtml();
             if (notes[qkey] != note) {
                 notes[qkey] = note;
                 localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
@@ -359,7 +362,11 @@
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
             var qkey = 'q,' + sectionNum + ',' + questionNum;
             var note = notes[qkey] || '';
-            $('#notes-editor').val(note);
+            $notesEditor.html(note);
+        }
+
+        function handleNotesKeydown(e) {
+            if (e.keyCode == 27) { $(this).blur(); }
         }
 
         function toggleAnswer() {
@@ -369,7 +376,7 @@
                 
                 // Update notes editor
                 $notes.width($notes.parent().width());
-                $notesEditor.refresh();
+                // $notesEditor.refresh();
             }
         }
 
