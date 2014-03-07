@@ -8,7 +8,7 @@ html {
 body {
 	background-color: inherit;
 }
-body.modal-open {
+.modal-open .container {
 	overflow: hidden;
 }
 div#main {
@@ -25,15 +25,21 @@ div#main {
 div#notes.affix {
 	top: 10px;
 }
-div#notes textarea {
-	width: 100%;
-	border: 1px solid #eeeeee;
+div#notes p {
+	margin-bottom: 0px;
 }
 div#qchoices {
 	padding-left: 20px;
 }
 div.editor {
 	width: 100%;
+}
+.input-xs {
+  height: 24px;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 3px;
 }
 .arrow {
 	cursor: pointer;

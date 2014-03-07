@@ -5,6 +5,8 @@
     <!-- Bootstrap -->
     <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="static/thirdparty/cleditor/jquery.cleditor.css" />
+    <link rel="stylesheet" type="text/css" href="static/thirdparty/font-awesome/css/font-awesome.min.css" />
+    <link rel="stylesheet" type="text/css" href="static/thirdparty/jquery-notebook/jquery.notebook.min.css" />
     <link href="static/css/tutorme.css" rel="stylesheet">
 
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
@@ -14,6 +16,14 @@
     <![endif]-->
 </head>
 <body>
+    <div class="modal fade" id="search-dlg" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body">
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal fade" id="config-dlg" tabindex="-1" role="dialog" aria-labelledby="config-dlg-title" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -68,6 +78,9 @@
                         <button class="btn btn-sm btn-default pull-right" data-toggle="modal" data-target="#config-dlg">
                             <span class="glyphicon glyphicon-cog" id="config"></span>
                         </button>
+                        <div class="col-xs-3 pull-right">
+                            <input type="text" class="form-control input-xs" placeholder="Search..." id="search">
+                        </div>
                     </ol>
                 </div>
 
@@ -127,7 +140,7 @@
                                         Notes
                                         <button class="btn btn-link btn-xs pull-right" id="hide-notes">Hide</button>
                                     </div>
-                                    <div id="notes-editor" contenteditable="true"></div>
+                                    <div id="notes-editor"></div>
                                 </div>
                         </div>
                     </div>
@@ -150,8 +163,8 @@
     <script src="static/thirdparty/cleditor/jquery.cleditor.min.js"></script>
     <script src="static/thirdparty/cleditor/jquery.cleditor.table.min.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
-    <script src="static/thirdparty/bootstrap-wysiwyg.js"></script>
     <script src="static/js/data.js"></script>
+    <script src="static/thirdparty/jquery-notebook/jquery.notebook.min.js"></script>
     <script type="text/javascript">
     <!--
         function getUrlVars()
@@ -169,7 +182,7 @@
     -->
     </script>
     <script type="text/javascript">
-
+    <!--
         var $qtext, $answer, $answerText, $editor;
 
         var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
@@ -192,6 +205,8 @@
             $notesPanel = $('#notes-panel');
             $notes = $('#notes');
             $notesEditor = $('#notes-editor');
+            $search = $('#search');
+            $searchResults = $('#search-dlg');
             $config = $('#config-dlg');
             $showNotesOpt = $('#show-notes-option');
             $darkColorSchemeOpt = $('#dark-color-scheme-option')
@@ -219,6 +234,7 @@
             $(document).bind('keydown', 'shift+right', nextSection);
             $(document).bind('keypress', 'return', nextQuestion);
             $(document).bind('keypress', 'shift+return', gotoDashboard);
+            $(search).bind('keypress', 'return', executeSearch);
 
             // Initialize question / answer editor
             var controls = "bold italic underline strikethrough subscript superscript | font size style " +
@@ -233,8 +249,7 @@
 
             var notes_controls = "bold italic underline | size " +
                   "color | bullets numbering";
-            // $notesEditor = $('#notes-editor').cleditor({ controls: notes_controls, height: 300 })[0];
-            $notesEditor.wysiwyg();
+            $notesEditor.notebook({ placeholder: '', modifiers: ['bold', 'italic', 'underline', 'ol', 'ul'] });
             $notesEditor.on('input', saveNotes);
             $notesEditor.keydown(handleNotesKeydown);
             $notes.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
@@ -308,6 +323,30 @@
             $darkColorSchemeOpt.prop('checked', true);
         }
 
+        function executeSearch() {
+            var text = $search.val();
+            var p = new RegExp(text, 'i');
+            var matches = [];
+            $.each(data, function(i, section) {
+                $.each(section.questions, function(j, details) {
+                    if (p.test(details.question) || p.test(details.answer)) {
+                        matches.push({sectionNum: i+1, section: section.section, questionNum: j+1, question: details.question});
+                    }
+                })
+            });
+
+            if (matches) {
+                var contents = $.map(matches, function(m) {
+                    var text = $.trim($('<p>' + m.question + '</p>').text());
+                    return '<dt><a href="questions.html?section=' + m.sectionNum + '&q=' + m.questionNum + '">' + m.section + ' #' + (m.questionNum) + '</a></dt>' +
+                        '<dd>' + $.trim(text.substring(0, 200)) + '...</dd><br/>';
+                });
+                console.log(contents.join('\n'))
+                $searchResults.find('.modal-body').html('<dl>' + contents.join('\n') + '</dl>');
+                $searchResults.modal();
+            }
+        }
+
         function toggleNotes() {
             if ($showNotesOpt.is(':checked')) {
                 hideNotes();
@@ -351,9 +390,9 @@
         function saveNotes() {
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
             var qkey = 'q,' + sectionNum + ',' + questionNum;
-            var note = $notesEditor.cleanHtml();
+            var note = $notesEditor.html();
             if (notes[qkey] != note) {
-                notes[qkey] = note;
+                notes[qkey] = $.trim(note);
                 localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
             }
         }
@@ -376,7 +415,6 @@
                 
                 // Update notes editor
                 $notes.width($notes.parent().width());
-                // $notesEditor.refresh();
             }
         }
 
