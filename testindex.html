@@ -97,6 +97,7 @@
     </div>
 
     <script src="static/thirdparty/jquery.min.js"></script>
+    <script src="static/thirdparty/jquery.hotkeys.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
     <script src="static/js/data.js"></script>
     <script type="text/javascript">
@@ -125,6 +126,8 @@
             $('#selectnone').click(function() { $('#subjects > .list-group-item').removeClass('active'); })
             $('#subjects > .list-group-item').click(function() { $(this).toggleClass('active'); return false; });
             $('#create').click(createTest);
+
+            $(document).bind('keypress', 'shift+return', function() { window.location.href = "index.html" });
         }
 
         function refreshTestList() {
