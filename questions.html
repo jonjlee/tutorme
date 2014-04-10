@@ -784,7 +784,7 @@
             // Update URL
             if (window.history) {
                 var urlVars = getUrlVars();
-                if (urlVars.q != '' + (qnum+1)) {
+                if (urlVars.q != '' + (testQIndex+1)) {
                     window.history.pushState('', '', '?testid=' + testId + '&q=' + (testQIndex+1) + (reviewMode ? '&review=1' : ''));
                     // Also post page view to google analytics
                     if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }

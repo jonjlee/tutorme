@@ -139,7 +139,7 @@
                 for (i in testlist) {
                     var t = testlist[i],
                         id = 't' + i,
-                        el = $('<a href="questions.html?testid='+i+'" class="list-group-item" id="'+id+'"/>');
+                        el = $('<a href="questions.html?q=1&testid='+i+'" class="list-group-item" id="'+id+'"/>');
 
                     el.append($(testbtns))
                         .append($('<b>'+t.date+'</b><br/>'))
@@ -149,7 +149,7 @@
 
                     var $el = $('#' + id);
 
-                    $el.find('#review').attr('href', 'questions.html?review=1&testid=' + i);
+                    $el.find('#review').attr('href', 'questions.html?review=1&q=1&testid=' + i);
                     $el.find('#grade').attr('href', 'testgrade.html?testid=' + i);
                     $el.find('#delete').hover(function() {
                         $(this).addClass('btn-danger');
@@ -189,7 +189,7 @@
             refreshTestList();
 
             // Start test 
-            window.location.href = 'questions.html?testid=' + (testlist.length-1);
+            window.location.href = 'questions.html?q=1&testid=' + (testlist.length-1);
         }
         function deleteTest(index) {
             var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
