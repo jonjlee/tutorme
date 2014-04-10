@@ -76,10 +76,10 @@
                     <ol class="breadcrumb">
                         <li><a href="index.html">Capstone</a></li>
                         <li class="active"><span id="section" href="#"></span></li>
-                        <button class="btn btn-sm btn-default pull-right" data-toggle="modal" data-target="#config-dlg">
+                        <button class="btn btn-sm btn-default hidden-xs pull-right" data-toggle="modal" data-target="#config-dlg">
                             <span class="glyphicon glyphicon-cog" id="config"></span>
                         </button>
-                        <div class="col-xs-3 pull-right">
+                        <div class="hidden-xs col-xs-3 pull-right">
                             <input type="text" class="form-control input-xs" placeholder="Search..." id="search">
                         </div>
                     </ol>
@@ -95,9 +95,9 @@
                             </h3>
                         </div>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-4" id="mastery">
                         Mastery:
-                        <span id="mastery" class="btn-group">
+                        <span class="btn-group">
                             <button id="mastery-1" type="button" class="btn btn-default">1</button>
                             <button id="mastery-2" type="button" class="btn btn-default">2</button>
                             <button id="mastery-3" type="button" class="btn btn-default">3</button>
@@ -120,6 +120,7 @@
                 
                 <div class="row">
                     <button class="btn btn-primary" id="show">Show Answer</button>
+                    <a class="btn btn-primary pull-right" href="" id="submit">End Test</a>
                     <div id="edit-buttons" class="pull-right hidden">
                         <button type="button" class="btn btn-link" id="edit-question">Edit...</button>
                     </div>
@@ -192,16 +193,20 @@
         var COLOR_STORAGE_KEY = 'tutorme.capstone.color';
         var EDITS_STORAGE_KEY = 'tutorme.capstone.edits';
         var HILITES_STORAGE_KEY = 'tutorme.capstone.highlights';
+        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
         var EDITOR_SECTION_DELIMITER = '<center style="font-weight: normal;"><h2>Answer</h2></center>'
         var EDITS_GFORM_URL = 'https://docs.google.com/forms/d/1VW7Hi-yxKKMBt5LN6YbIQ4JiP_EQG25R73a3I0zVlh0/formResponse';
         var EDITS_GFORM_ID = 'entry.1916899601';
         var EDITS_GFORM_TEXT = 'entry.1238214025';
         var MASTERY_COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
 
-        var sectionNum = 0, questionNum = 0;
+        var sectionNum = 0, questionNum = 0, testId = NaN, reviewMode = false;
 
         function initUI() {
+            $breadcrumb = $('.breadcrumb');
             $qtext = $('#qtext');
+            $showAnswer = $('#show');
+            $submit = $('#submit');
             $answer = $('#answer');
             $answerText = $('#answer-text');
             $notesPanel = $('#notes-panel');
@@ -270,6 +275,9 @@
                 $darkColorSchemeOpt.prop('checked', true);
             }
 
+            // Set submit test target
+            $submit.attr('href', 'testgrade.html?testid=' + testId);
+
             // Event handlers
             $('.prev').click(function() { prevQuestion(); });
             $('.next').click(function() { nextQuestion(); });
@@ -292,7 +300,11 @@
         }
 
         function gotoDashboard() {
-            window.location.href = "index.html";
+            if (isTestMode()) {
+                window.location.href = "testindex.html";
+            } else {
+                window.location.href = "index.html";
+            }
         }
 
         function toggleDark() {
@@ -391,7 +403,7 @@
 
         function saveNotes() {
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            var qkey = 'q,' + sectionNum + ',' + questionNum;
+            var qkey = 'q,' + getQKey();
             var note = $notesEditor.html();
             if (notes[qkey] != note) {
                 notes[qkey] = $.trim(note);
@@ -401,7 +413,7 @@
 
         function restoreNotes() {
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            var qkey = 'q,' + sectionNum + ',' + questionNum;
+            var qkey = 'q,' + getQKey();
             var note = notes[qkey] || '';
             $notesEditor.html(note);
         }
@@ -411,6 +423,7 @@
         }
 
         function toggleAnswer() {
+            if (isTestMode()) { return; }
             $answer.toggle();
             if ($answer.is(':visible')) {
                 $('html,body').animate({scrollTop: $answer.offset().top - 250}, 'fast');
@@ -436,7 +449,7 @@
                 refreshEditor();
             } else {
                 hideEditor();
-                saveEdits(sectionNum, questionNum, $('#editor').val());
+                saveEdits(getQKey(), $('#editor').val());
             }
         }
 
@@ -474,7 +487,7 @@
             return updated;
         }
 
-        function saveEdits(sectionNum, qnum, editorText) {
+        function saveEdits(qkey, editorText) {
             var editorText = editorText.split(EDITOR_SECTION_DELIMITER);
             if (editorText.length < 2) {
                 return alert('Could not save because Answer section was deleted.');
@@ -482,8 +495,8 @@
 
             // Save question and answer/tutorial sections on page and in local store
             var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
-            var questionUpdated = executeEdit($qtext, editorText[0], edits, 'q,' + sectionNum + ',' + qnum);
-            var answerUpdated = executeEdit($answerText, editorText[1], edits, 'a,' + sectionNum + ',' + qnum);
+            var questionUpdated = executeEdit($qtext, editorText[0], edits, 'q,' + qkey);
+            var answerUpdated = executeEdit($answerText, editorText[1], edits, 'a,' + qkey);
 
             if (questionUpdated || answerUpdated) {
                 localStorage.setItem(EDITS_STORAGE_KEY, JSON.stringify(edits));
@@ -500,8 +513,8 @@
 
         function saveHighlights(highlights, range) {
             // Retrieve currently stored highlights
-            var qkey = 'q,' + sectionNum + ',' + questionNum;
-            var akey = 'a,' + sectionNum + ',' + questionNum;
+            var qkey = 'q,' + getQKey();
+            var akey = 'a,' + getQKey();
             var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
 
             // Serialize currently highlighted text
@@ -519,11 +532,20 @@
         }
 
         function readHighlights() {
-            var qkey = 'q,' + sectionNum + ',' + questionNum;
-            var akey = 'a,' + sectionNum + ',' + questionNum;
+            var qkey = 'q,' + getQKey();
+            var akey = 'a,' + getQKey();
             var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
-            if (hilites[qkey]) { $qtext.getHighlighter().deserializeHighlights(hilites[qkey]); }
+            if (!isTestMode() && hilites[qkey]) { $qtext.getHighlighter().deserializeHighlights(hilites[qkey]); }
             if (hilites[akey]) { $answerText.getHighlighter().deserializeHighlights(hilites[akey]); }
+        }
+
+        function numQuestions() {
+            if (isTestMode()) {
+                var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+                return testlist[testId].questions.length;
+            } else {
+                return data[sectionNum].questions.length;
+            }
         }
 
         function prevQuestion() {
@@ -533,20 +555,20 @@
         }
 
         function nextQuestion() {
-            if (questionNum < data[sectionNum].questions.length-1) {
+            if (questionNum < numQuestions()-1 ) {
                 showQuestion(data, sectionNum, ++questionNum);
             }
         }
 
         function prevSection() {
-            if (sectionNum > 0) {
+            if (sectionNum > 0 && !isTestMode()) {
                 questionNum = 0;
                 showQuestion(data, --sectionNum, questionNum);
             }
         }
 
         function nextSection() {
-            if (sectionNum < data.length-1) {
+            if (sectionNum < data.length-1 && !isTestMode()) {
                 questionNum = 0;
                 showQuestion(data, ++sectionNum, questionNum);
             }
@@ -554,6 +576,32 @@
 
         function selectOption(opt) {
             $($('input[type=radio]')[opt]).prop('checked', true);
+            var test = getTest();
+            if (test && !reviewMode) {
+                test.answers = test.answers || [];
+                test.answers[questionNum] = opt+1;
+                saveTest(test);
+            }
+        }
+
+        function selectCorrect(user, correct) {
+            var opts = $('input[type=radio]');
+            if (correct && correct <= opts.length) {
+                $('<span><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
+                $(opts[correct-1]).closest('p').css('margin-left', '-20px')
+            }
+            if (user && user != correct) {
+                $('<span><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
+                $(opts[user-1]).closest('p').css('margin-left', '-20px')
+            }
+        }
+
+        function showMastery() {
+            $('#mastery').show();
+        }
+
+        function hideMastery() {
+            $('#mastery').hide();
         }
 
         function clearMastery() {
@@ -563,7 +611,7 @@
 
         function readMastery() {
             var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
-            var qkey = sectionNum + ',' + questionNum;
+            var qkey = getQKey();
             if (mastery[qkey]) {
                 selectMastery(mastery[qkey]);
             } else {
@@ -572,6 +620,8 @@
         }
 
         function selectMastery(n) {
+            if (isTestMode()) { return; }
+
             $('#mastery button').removeClass('active');
             $('#mastery button').removeClass('btn-info');
             // $('#mastery button').css('background-color', '');
@@ -581,7 +631,7 @@
                 // $('#mastery-' + n).css('background-color', MASTERY_COLORS[n]);
             }
 
-            var qkey = sectionNum + ',' + questionNum;
+            var qkey = getQKey();
             var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
 
             if (n > 0) {
@@ -593,21 +643,61 @@
             localStorage.setItem(MASTERY_STORAGE_KEY, JSON.stringify(mastery));
         }
 
-        function showQuestion(data, sectionNum, qnum) {
-            var section = data[sectionNum];
-            var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
-            var editKey = 'q,' + sectionNum + ',' + qnum;
-            var answerKey = 'a,' + sectionNum + ',' + qnum;
-            var i = 0;
+        function isTestMode() {
+            return !isNaN(testId);
+        }
 
-            // Breadcrumb text
-            $('#section').text(section.section);
+        function getTest() {
+            if (!isTestMode()) { return null; }
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+            return testlist[testId]
+        }
 
+        function saveTest(test) {
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+            testlist[testId] = test;
+            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
+        }
+
+        function getQKey() {
+            if (isTestMode()) {
+                return getTest().questions[questionNum];
+            } else {
+                return sectionNum + ',' + questionNum
+            }
+        }
+
+        function getCorrect(question) {
+            if (question.correct) {
+                return question.correct;
+            } else {
+                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
+                var matches = question.answer.match(pattern);
+                if (matches) {
+                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
+                }
+            }
+        }
+
+        function initBreadcrumb(paths) {
+            $breadcrumb.find('li').remove();
+            $breadcrumb.append('<li><a href="index.html">Capstone</a></li>');
+            for (var i in paths) {
+                var path = paths[i];
+                if (typeof(path) === 'string') {
+                    $breadcrumb.append('<li class="active"><span href="#">'+path+'</span></li>');
+                } else {
+                    $breadcrumb.append('<li><a href="'+path.href+'">'+path.text+'</a></li>');
+                }
+            }
+        }
+
+        function initQuestionNumber(qnum, numqs) {
             // Show/hide prev/next question arrows
             if (qnum == 0) {
                 $('.prev').hide();
                 $('.next').show();
-            } else if (qnum < section.questions.length-1) {
+            } else if (qnum < numqs-1) {
                 $('.prev').show();
                 $('.next').show();
             } else {
@@ -616,27 +706,126 @@
             }
 
             // "Question x of y" and actual question text
-            $('#qnum').text(qnum+1 + ' of ' + section.questions.length)
+            $('#qnum').text(qnum+1 + ' of ' + numqs)
+        }
 
-            // Question text and choices. Add radio button before each choice if we can. Don't add radio
+        function initQuestionText(questionText) {
+            // Add radio button before each choice if we can. Don't add radio
             // button for matching questions (those with choices A-Z. and 1-9.) or multiple part questions
             // (those with more than one A. answer), which mess up the A-Z shortcut keys.
-            var questionText = edits[editKey] || section.questions[qnum].question;
             if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
                     (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
                 questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input type="radio" name="opt"></input> &nbsp;&nbsp; $1');
             }
             $qtext.html(questionText);
+        }
+
+        function initMedia() {
+            $.fancybox.close(true);
+            $('.fancybox').fancybox();
+        }
+
+        function showQuestion(data, sectionNum, qnum) {
+            if (isTestMode()) {
+                showTestQuestion(data, qnum);
+            } else {
+                showTutorialQuestion(data, sectionNum, qnum);
+            }
+        }
+
+        function showTestQuestion(data, testQIndex) {
+            var test = getTest(),
+                testQId = test.questions[testQIndex],
+                id_parts = testQId.split(','),
+                sectionNum = parseInt(id_parts[0]),
+                section = data[sectionNum],
+                qnum = parseInt(id_parts[1]);
+
+            if (!test) { return; }
+
+            // Breadcrumb text
+            initBreadcrumb([{href: 'testindex.html', text: 'Practice Tests'}, 'Test '+(testId+1)])
+
+            // Show/hide prev/next question arrows
+            initQuestionNumber(testQIndex, test.questions.length);
+
+            // Question text and choices
+            initQuestionText(section.questions[qnum].question);
+
+            // Select users answer
+            var answer = test.answers && test.answers[testQIndex];
+            if (answer) { selectOption(answer-1); }
+
+            // Explanation
+            if (reviewMode) {
+                var correct = getCorrect(section.questions[qnum]);
+                selectCorrect(answer, correct);
+                $answerText.html(
+                    '<p class="text-center text-muted"><small><a href="questions.html?section=' + (sectionNum+1) + '&q=' + (qnum+1) + '">' + section.section + ' #' + (qnum+1) + '</a></small></p>\n' + 
+                    section.questions[qnum].answer);
+                $answer.show();
+                $submit.hide();
+            } else {
+                $answer.hide();
+                $submit.show();
+            }
+
+            // Enable pop up media
+            initMedia();
+
+            // Restore notes (not highlights)
+            restoreNotes();
+
+            // Hide extraneous sections
+            $showAnswer.hide();
+            hideEditor();
+            hideMastery();
+
+            // Update URL
+            if (window.history) {
+                var urlVars = getUrlVars();
+                if (urlVars.q != '' + (qnum+1)) {
+                    window.history.pushState('', '', '?testid=' + testId + '&q=' + (testQIndex+1) + (reviewMode ? '&review=1' : ''));
+                    // Also post page view to google analytics
+                    if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }
+                }
+            }
+        }
+
+        function showTutorialQuestion(data, sectionNum, qnum) {
+            var section = data[sectionNum];
+            var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
+            var qkey = getQKey();
+            var editKey = 'q,' + qkey;
+            var answerKey = 'a,' + qkey;
+            var i = 0;
+
+            // Breadcrumb text
+            initBreadcrumb([section.section]);
+
+            // Show/hide prev/next question arrows
+            initQuestionNumber(qnum, section.questions.length);
+
+            // Question text and choices.
+            var questionText = edits[editKey] || section.questions[qnum].question;
+            initQuestionText(questionText);
 
             // Answers with explanations and tutorial section
             var answerText = edits[answerKey] || section.questions[qnum].answer;
             $answerText.html(answerText);
-            $answer.hide();
+            if (!reviewMode) {
+                $answer.hide();
+            }
+
+            // Show "Show Answer" button and hide submit test button
+            $showAnswer.show();
+            $submit.hide();
 
             // Make sure question is show and editor is hidden
             hideEditor();
 
             // Update mastery selector
+            showMastery();
             readMastery();
 
             // Restore notes & highlights
@@ -644,14 +833,13 @@
             readHighlights();
 
             // Enable pop up media
-            $.fancybox.close(true);
-            $('.fancybox').fancybox();
+            initMedia();
 
             // Update URL
             if (window.history) {
                 var urlVars = getUrlVars();
                 if ((urlVars.section != '' + (sectionNum+1)) || urlVars.q != '' + (qnum+1)) {
-                    window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1));
+                    window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1) + (reviewMode ? '&review=1' : ''));
 
                     // Also post page view to google analytics
                     if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }
@@ -661,7 +849,9 @@
 
         // Parse URL query params if provided
         var urlVars = getUrlVars();
-        if (urlVars.section !== undefined && urlVars.q !== undefined) {
+        testId = parseInt(urlVars.testid);
+        reviewMode = !!urlVars.review;
+        if (urlVars.q !== undefined) {
             try {
                 sectionNum = parseInt(urlVars.section)-1;
                 questionNum = parseInt(urlVars.q)-1;

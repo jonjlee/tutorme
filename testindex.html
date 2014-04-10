@@ -103,9 +103,9 @@
     <!--
         var testlistStorageKey = 'tutorme.capstone.testlist';
         var testbtns = '<div class="btn-group pull-right">' + 
-                        '<button id="open" type="button" class="btn btn-sm btn-default">Open</button>'+
-                        '<button id="grade" type="button" class="btn btn-sm btn-default">Grade</button>'+
-                        '<button id="delete" type="button" class="btn btn-sm btn-default">Delete</button>'+
+                        '<a id="review" class="btn btn-sm btn-default">Review</a>'+
+                        '<a id="grade" type="button" class="btn btn-sm btn-default">Summary</a>'+
+                        '<a id="delete" type="button" class="btn btn-sm btn-default">Delete</a>'+
                         '</div>';
 
         function initUI() {
@@ -139,7 +139,7 @@
                 for (i in testlist) {
                     var t = testlist[i],
                         id = 't' + i,
-                        el = $('<a href="#" class="list-group-item" id="'+id+'"/>');
+                        el = $('<a href="questions.html?testid='+i+'" class="list-group-item" id="'+id+'"/>');
 
                     el.append($(testbtns))
                         .append($('<b>'+t.date+'</b><br/>'))
@@ -147,7 +147,11 @@
                         .append($('<span>Subjects: '+t.subjects.join('; ')+'</span>'));
                     $existingtests.append(el);
 
-                    $('#' + id + ' #delete').hover(function() {
+                    var $el = $('#' + id);
+
+                    $el.find('#review').attr('href', 'questions.html?review=1&testid=' + i);
+                    $el.find('#grade').attr('href', 'testgrade.html?testid=' + i);
+                    $el.find('#delete').hover(function() {
                         $(this).addClass('btn-danger');
                     }, function() {
                         $(this).removeClass('btn-danger');
@@ -156,7 +160,7 @@
                         deleteTest(i);
                     }).click(function() { 
                         return false;
-                    }).tooltip({title: 'Double click to delete', placement: 'bottom', trigger: 'click'});
+                    }).tooltip({title: 'Double click to delete (cannot be recovered)', placement: 'bottom', trigger: 'click'});
                 }
             }
         }
@@ -183,6 +187,9 @@
             testlist.push(test);
             localStorage.setItem(testlistStorageKey, JSON.stringify(testlist));
             refreshTestList();
+
+            // Start test 
+            window.location.href = 'questions.html?testid=' + (testlist.length-1);
         }
         function deleteTest(index) {
             var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
@@ -198,7 +205,7 @@
             return s + ',' + q;
         }
         function questionFromId(data, id) {
-            parts = id.split(',');
+            var parts = id.split(',');
             return data[parseInt(parts[0])].questions[parseInt(parts[1])]
         }
         function getUsedQuestionIds() {
@@ -209,11 +216,35 @@
             }
             return ids;
         }
+        function answerable(question) {
+            var questionText = question.question;
+            if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
+                (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
+                return /([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/.test(questionText);
+            }
+            return false;
+        }
+        function getCorrect(question) {
+            if (question.correct) {
+                return question.correct;
+            } else {
+                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
+                var matches = question.answer.match(pattern);
+                if (matches) {
+                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
+                }
+            }
+        }
         function filterValidQuestionIds(ids) {
             if ($('#newonly').is(':checked')) {
                 var used = getUsedQuestionIds();
-                return ids.filter(function(id) { return used.indexOf(id) < 0; });
+                ids = ids.filter(function(id) { return used.indexOf(id) < 0; });
             }
+            // Only use questions where we know the correct answer and it can be answered
+            ids = ids.filter(function(id) { 
+                var question = questionFromId(data, id);
+                return getCorrect(question) && answerable(question); 
+            });
             return ids;
         }
         function getQuestions(sections, num) {
@@ -244,6 +275,15 @@
         // Set up keyboard shortcuts and button actions
         initUI();
     -->
+    </script>
+    <!-- Google analytics -->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-48235520-1', 'jonjlee.github.io');
+      ga('send', 'pageview');
     </script>
 </body>
 </html>

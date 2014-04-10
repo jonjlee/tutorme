@@ -1,0 +1,172 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Transitions - Test Results</title>
+    <!-- Bootstrap -->
+    <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/css/tutorme.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-xs-12 col-md-8 col-md-offset-2" id="main">
+                <div class="row">
+                    <ol class="breadcrumb">
+                        <li><a href="index.html">Capstone</a></li>
+                        <li><a href="testindex.html">Practice Tests</a></li>
+                        <li class="active"><span href="#">Tests Results</span></li>
+                    </ol>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <h4>Test Information</h4>
+                        <div class="list-group" id="testinfo"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <h4>Overall Performance</h4>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <div class="alert alert-success">
+                            <span id="performance"></span>
+                        </div>
+                        <a class="btn btn-primary" href="#" id="review">Review</a>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <h4>Performance by Subject</h4>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-12" id="subjects"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/thirdparty/jquery.min.js"></script>
+    <script src="static/thirdparty/jquery.hotkeys.js"></script>
+    <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/data.js"></script>
+    <script type="text/javascript">
+    <!--
+        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
+        var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]')
+        var test = null;
+
+        function getUrlVars()
+        {
+            var vars = [], hash;
+            var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+            for(var i = 0; i < hashes.length; i++)
+            {
+                hash = hashes[i].split('=');
+                vars.push(hash[0]);
+                vars[hash[0]] = hash[1];
+            }
+            return vars;
+        }
+
+        function questionFromId(data, id) {
+            var parts = id.split(',');
+            return data[parseInt(parts[0])].questions[parseInt(parts[1])]
+        }
+
+        function getCorrect(question) {
+            if (question.correct) {
+                return question.correct;
+            } else {
+                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
+                var matches = question.answer.match(pattern);
+                if (matches) {
+                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
+                }
+            }
+        }
+
+        function initTestInfo() {
+            var el = $('<li class="list-group-item"/>');
+            el.append($('<b>'+test.date+'</b><br/>'))
+                .append($('<span>'+test.numquestions+' questions</span><br/>'))
+                .append($('<span>Subjects: '+test.subjects.join('; ')+'</span>'));
+            $('#testinfo').append(el);
+            $('#review').attr('href', 'questions.html?review=1&testid=' + testId)
+        }
+
+        function initPerformance() {
+            var numcorrect = 0,
+                correct = [];
+            for (var i in test.questions) {
+                var question = questionFromId(data, test.questions[i])
+                    answer = test.answers && test.answers[i] || null,
+                    correct[i] = getCorrect(question);
+                if (answer == correct[i]) {
+                    numcorrect++;
+                }
+            }
+            $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length)
+
+            var $subjects = $('#subjects');
+            for (i in data) {
+                if (test.subjects.indexOf(data[i].section) >= 0) {
+                    numcorrect = 0;
+                    i = parseInt(i);
+                    var qlist = [];
+                    for (j in data[i].questions) {
+                        var question = data[i].questions[j],
+                            qkey = i + ',' + j,
+                            qIdx = test.questions.indexOf(qkey),
+                            answer = test.answers && test.answers[qIdx] || null;
+                        if (qIdx >= 0) {
+                            var id = 's' + i + '-q' + j,
+                                href = 'questions.html?review=1&testid=' + testId + '&q=' + (qIdx+1),
+                                correct = (getCorrect(question) == answer) ? 1 : 0;
+                                bkgClass = correct && 'btn-success' || answer && 'btn-danger' || '';
+                            
+                            numcorrect += correct;
+                            qlist.push({
+                                qIdx: qIdx,
+                                el: '<a class="btn btn-default ' + bkgClass + '" href="' + href + '">' + (qIdx+1) + '</a>'
+                            });
+                        }
+                    }
+                    qlist.sort(function(a,b) { return a.qIdx - b.qIdx; });
+                    var questions = '<div class="row"><div class="col-xs-12"><span class="btn-group">' +
+                        qlist.map(function(q) { return q.el; }).join('\n') +
+                        '</span></div></div>';
+
+                    $subjects.append('<div class="row"><div class="col-xs-12"><h5>' + data[i].section + ' <small>(' + numcorrect + ' / ' + qlist.length + ' correct)</small></h5></div></div>' + questions)
+                }
+            }
+        }
+
+        function initUI() {
+            initTestInfo();
+            initPerformance();
+            $(document).bind('keypress', 'shift+return', function() { window.location.href = "testindex.html" });
+        }
+
+        // Set up keyboard shortcuts and button actions
+        var urlVars = getUrlVars();
+        testId = parseInt(urlVars.testid);
+        if (isNaN(testId) || testId >= testlist.length) {
+            $('#testinfo').html('Invalid test ID. Please select another test from the <a href="testindex.html">Practice Tests</a> page.');
+            $('#performance').parent().hide();
+        } else {
+            test = testlist[testId];
+            initUI();
+        }
+    -->
+    </script>
+</body>
+</html>

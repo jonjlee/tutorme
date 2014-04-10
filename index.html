@@ -20,15 +20,16 @@
 					<h2>Clinical Transitions Questions</h2>
 				</div>
 
-				<div class="row hidden">
+				<div class="row">
 					<div class="col-xs-12">
-						<div class="alert alert-warning">
+						<div class="alert alert-info">
+							<p><span class="label label-success">New!</span> <a href="testindex.html">Practice tests</a>. Create an untimed practice test in the <a href="testindex.html">Practice Tests</a> section.</p>
 							<p>Concerns or suggestions? Take a moment to <a href="mailto:jonathan-lee@ouhsc.edu?subject='Capstone tutorials issue'">email me.</a></p>
 						</div>
 					</div>
 				</div>
 
-				<div class="row hidden">
+				<div class="row">
 					<div class="col-xs-12">
 						<h4>Practice Tests</h4>
 						<span class="btn-group" id="tests">
@@ -84,7 +85,7 @@
 			}
 
 			for (i in testlist) {
-				$tests.append($('<a class="btn btn-default" href="test.html?id='+i+'">'+testlist[i].numquestions+' qs - '+testlist[i].date+'</a>'));
+				$tests.append($('<a class="btn btn-default" href="questions.html?testid='+i+'">'+testlist[i].numquestions+' qs - '+testlist[i].date+'</a>'));
 			}
 		}
 
