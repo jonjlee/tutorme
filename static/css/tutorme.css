@@ -51,3 +51,7 @@ table {
 table p {
 	margin: 2px 8px 2px 8px;
 }
+.fancybox-wrap {
+  position: absolute;
+  top: 50px !important;
+}

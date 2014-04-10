@@ -7,6 +7,7 @@
     <link rel="stylesheet" type="text/css" href="static/thirdparty/cleditor/jquery.cleditor.css" />
     <link rel="stylesheet" type="text/css" href="static/thirdparty/font-awesome/css/font-awesome.min.css" />
     <link rel="stylesheet" type="text/css" href="static/thirdparty/jquery-notebook/jquery.notebook.min.css" />
+    <link rel="stylesheet" href="static/thirdparty/fancybox/jquery.fancybox.css" type="text/css" media="screen" />
     <link href="static/css/tutorme.css" rel="stylesheet">
 
     <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
@@ -165,6 +166,7 @@
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
     <script src="static/js/data.js"></script>
     <script src="static/thirdparty/jquery-notebook/jquery.notebook.min.js"></script>
+    <script type="text/javascript" src="static/thirdparty/fancybox/jquery.fancybox.pack.js"></script>
     <script type="text/javascript">
     <!--
         function getUrlVars()
@@ -640,6 +642,10 @@
             // Restore notes & highlights
             restoreNotes();
             readHighlights();
+
+            // Enable pop up media
+            $.fancybox.close(true);
+            $('.fancybox').fancybox();
 
             // Update URL
             if (window.history) {
