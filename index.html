@@ -28,6 +28,15 @@
 					</div>
 				</div>
 
+				<div class="row hidden">
+					<div class="col-xs-12">
+						<h4>Practice Tests</h4>
+						<span class="btn-group" id="tests">
+							<a class="btn btn-default" href="testindex.html">Go to Practice Tests</a>
+						</span>
+					</div>
+				</div>
+
 				<div class="row">
 					<div class="col-xs-12" id="subjects"></div>
 				</div>
@@ -41,18 +50,21 @@
 	<script type="text/javascript">
 	<!--
 		var localStorageKey = 'tutorme.capstone.mastery';
+        var testlistStorageKey = 'tutorme.capstone.testlist';
 		var COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
 
 		function initUI() {
 			var $subjects = $('#subjects');
+			var $tests = $('#tests');
 			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
+            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
 			var i, j;
 
 			for (i in data) {
 				i = parseInt(i);
-				$subjects.append('<div class="row"><h4>' + (i+1) + '. ' + data[i].section + '</h4></div>')
+				$subjects.append('<div class="row"><div class="col-xs-12"><h4>' + (i+1) + '. ' + data[i].section + '</h4></div></div>')
 
-				var questions = '<div class="row"><span class="btn-group">';
+				var questions = '<div class="row"><div class="col-xs-12"><span class="btn-group">';
 				for (j in data[i].questions) {
 					j = parseInt(j)
 					var qkey = i + ',' + j;
@@ -67,8 +79,12 @@
 					questions += '<a class="btn btn-default" id="' + id + '" ' + bkgAttr + ' href="' + href + '">' + (j+1) + '</a>';
 		
 				}
-				questions += '</span></div>';
+				questions += '</span></div></div>';
 				$subjects.append(questions);
+			}
+
+			for (i in testlist) {
+				$tests.append($('<a class="btn btn-default" href="test.html?id='+i+'">'+testlist[i].numquestions+' qs - '+testlist[i].date+'</a>'));
 			}
 		}
 
