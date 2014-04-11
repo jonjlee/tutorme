@@ -86,12 +86,13 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-sm-8">
+                    <div class="col-sm-12">
                         <div class="row">
                             <h3> 
                                 <span class="prev"><i class="arrow small glyphicon glyphicon-chevron-left"></i></span>
                                 Question <span id="qnum"></span>
                                 <span class="next"><i class="arrow small glyphicon glyphicon-chevron-right"></i></span>
+                                <span style="margin-top: 8px;" class="hidden pull-right" id="timer"><small>Elapsed Time: <span id="time"></span></small></span>
                             </h3>
                         </div>
                     </div>
@@ -134,6 +135,7 @@
                     <hr/>
                     <div class="row">
                         <div class="col-xs-12 text-center" id="show-notes"><small><a class="btn btn-link">Show Notes</a></small></div>
+                        <div class="col-xs-12 text-center text-muted" id="source"></div>
                         <div class="col-md-12" id="answer-text"></div>
                         <div class="col-md-3 hidden-sm hidden-xs" id="notes-panel" style="display:none;">
                             <div class="affix-notes" id="notes" style="display:none;">
@@ -201,14 +203,17 @@
         var MASTERY_COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
 
         var sectionNum = 0, questionNum = 0, testId = NaN, reviewMode = false;
+        var startupTime = new Date(), startupElapsedMs = 0;
 
         function initUI() {
             $breadcrumb = $('.breadcrumb');
+            $time = $('#time');
             $qtext = $('#qtext');
             $showAnswer = $('#show');
             $submit = $('#submit');
             $answer = $('#answer');
             $answerText = $('#answer-text');
+            $source = $('#source');
             $notesPanel = $('#notes-panel');
             $notes = $('#notes');
             $notesEditor = $('#notes-editor');
@@ -243,6 +248,10 @@
             $(document).bind('keypress', 'shift+return', gotoDashboard);
             $(search).bind('keypress', 'return', executeSearch);
 
+            // Initialize base elapsed time for test mode
+            var test = getTest();
+            startupElapsedMs = test && test.elapsedMs;
+
             // Initialize question / answer editor
             var controls = "bold italic underline strikethrough subscript superscript | font size style " +
                   "color | bullets numbering | outdent " +
@@ -262,11 +271,13 @@
             $notes.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
 
             // Initialize text highlighter plugin and remove highlights on click
-            var save = this.deferSaveHighlights.bind(this);
-            $qtext.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
-            $qtext.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
-            $answerText.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
-            $answerText.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+            if (!isTestMode() || reviewMode) {
+                var save = this.deferSaveHighlights.bind(this);
+                $qtext.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+                $qtext.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+                $answerText.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+                $answerText.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+            }
 
             // Initialize colorscheme
             var color = localStorage.getItem(COLOR_STORAGE_KEY) || '';
@@ -523,7 +534,7 @@
             
             // Determine if anything has been updated, and store new highlights
             var qupdated = (hilites[qkey] != qhilites);
-            var aupdated = (hilites[akey] != qhilites);
+            var aupdated = (hilites[akey] != ahilites);
             hilites[qkey] = qhilites;
             hilites[akey] = ahilites;
 
@@ -588,11 +599,11 @@
             var opts = $('input[type=radio]');
             if (correct && correct <= opts.length) {
                 $('<span><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
-                $(opts[correct-1]).closest('p').css('margin-left', '-20px')
+                $(opts[correct-1]).prev().css('margin-left', '-20px')
             }
             if (user && user != correct) {
                 $('<span><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
-                $(opts[user-1]).closest('p').css('margin-left', '-20px')
+                $(opts[user-1]).prev().css('margin-left', '-20px')
             }
         }
 
@@ -692,6 +703,29 @@
             }
         }
 
+        function refreshTimer() {
+            // Update timer as (elapsed time at page load + time since load)
+            var elapsedSinceStartup = new Date() - startupTime,
+                elapsedMs = (startupElapsedMs || 0) + elapsedSinceStartup,
+                elapsedMin = elapsedMs / 1000 / 60,
+                h = Math.floor(elapsedMin / 60),
+                mm = Math.floor(elapsedMin) % 60,
+                ss = Math.floor(elapsedMs / 1000) % 60;
+
+            mm = (mm<10 ? '0' : '') + mm;
+            ss = (ss<10 ? '0' : '') + ss;
+            $time.text(h + ':' + mm); // + ':' + ss);
+            setTimeout(refreshTimer, 1000);
+
+            // Store elapsed time
+            var test = getTest();
+            test.elapsedMs = elapsedMs;
+            saveTest(test);
+
+            // Make sure timer is shown
+            $('#timer').removeClass('hidden');
+        }
+
         function initQuestionNumber(qnum, numqs) {
             // Show/hide prev/next question arrows
             if (qnum == 0) {
@@ -742,11 +776,15 @@
                 qnum = parseInt(id_parts[1]);
 
             if (!test) { return; }
+            test.lastQuestion = testQIndex+1;
+            saveTest(test);
 
             // Breadcrumb text
             initBreadcrumb([
                 {href: 'testindex.html', text: 'Practice Tests'},
                 'Test - Created ' + test.date])
+
+            if (!reviewMode) { refreshTimer(); }
 
             // Show/hide prev/next question arrows
             initQuestionNumber(testQIndex, test.questions.length);
@@ -762,11 +800,13 @@
             if (reviewMode) {
                 var correct = getCorrect(section.questions[qnum]);
                 selectCorrect(answer, correct);
-                $answerText.html(
-                    '<p class="text-center text-muted"><small><a href="questions.html?section=' + (sectionNum+1) + '&q=' + (qnum+1) + '">' + section.section + ' #' + (qnum+1) + '</a></small></p>\n' + 
-                    section.questions[qnum].answer);
+                $source.html('<p><small><a href="questions.html?section=' + (sectionNum+1) + '&q=' + (qnum+1) + '">' + section.section + ' #' + (qnum+1) + '</a></small></p>')
+                $answerText.html(section.questions[qnum].answer);
                 $answer.show();
                 $submit.hide();
+
+                // Restore highlights
+                readHighlights();
             } else {
                 $answer.hide();
                 $submit.show();

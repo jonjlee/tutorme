@@ -138,6 +138,18 @@
             return num;
         }
 
+        function getElapsed(ms) {
+            ms = ms || 0;
+            var elapsedMin = ms / 1000 / 60,
+                h = Math.floor(elapsedMin / 60),
+                mm = Math.floor(elapsedMin) % 60,
+                ss = Math.floor(ms / 1000) % 60;
+
+            mm = (mm<10 ? '0' : '') + mm;
+            ss = (ss<10 ? '0' : '') + ss;
+            return (h + ':' + mm + ':' + ss);
+        }
+
         function refreshTestList() {
             var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
             if (numTests(testlist) == 0) {
@@ -152,11 +164,11 @@
                     if (isNaN(i)) { return; }
                     var t = testlist[i],
                         id = 't' + i,
-                        el = $('<a href="questions.html?q=1&testid='+i+'" class="list-group-item" id="'+id+'"/>');
+                        el = $('<a href="questions.html?q=' + (t.lastQuestion || 1) + '&testid='+i+'" class="list-group-item" id="'+id+'"/>');
 
                     el.append($(testbtns))
                         .append($('<b>'+t.date+'</b><br/>'))
-                        .append($('<span>'+t.numquestions+' questions</span><br/>'))
+                        .append($('<span>'+t.numquestions+' questions | '+getElapsed(t.elapsedMs)+' elapsed </span><br/>'))
                         .append($('<span>Subjects: '+t.subjects.join('; ')+'</span>'));
                     $existingtests.append(el);
 

@@ -86,7 +86,7 @@
 
 			for (i in testlist) {
 				if (isNaN(i)) { continue; }
-				$tests.append($('<a class="btn btn-default" href="questions.html?q=1&testid='+i+'">'+testlist[i].numquestions+' Qs - '+testlist[i].date+'</a>'));
+				$tests.append($('<a class="btn btn-default" href="questions.html?q=' + (testlist[i].lastQuestion || 1) + '&testid='+i+'">'+testlist[i].numquestions+' Qs - '+testlist[i].date+'</a>'));
 			}
 		}
 

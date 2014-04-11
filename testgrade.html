@@ -39,7 +39,7 @@
                         <div class="alert alert-success">
                             <span id="performance"></span>
                         </div>
-                        <a class="btn btn-primary" href="#" id="review">Review</a>
+                        <a class="btn btn-primary" href="#" id="review">Review All</a>
                     </div>
                 </div>
                 <div class="row">
@@ -82,6 +82,18 @@
             return data[parseInt(parts[0])].questions[parseInt(parts[1])]
         }
 
+        function getElapsed(ms) {
+            ms = ms || 0;
+            var elapsedMin = ms / 1000 / 60,
+                h = Math.floor(elapsedMin / 60),
+                mm = Math.floor(elapsedMin) % 60,
+                ss = Math.floor(ms / 1000) % 60;
+
+            mm = (mm<10 ? '0' : '') + mm;
+            ss = (ss<10 ? '0' : '') + ss;
+            return (h + ':' + mm + ':' + ss);
+        }
+
         function getCorrect(question) {
             if (question.correct) {
                 return question.correct;
@@ -97,7 +109,7 @@
         function initTestInfo() {
             var el = $('<li class="list-group-item"/>');
             el.append($('<b>'+test.date+'</b><br/>'))
-                .append($('<span>'+test.numquestions+' questions</span><br/>'))
+                .append($('<span>'+test.numquestions+' questions | '+getElapsed(test.elapsedMs)+' elapsed </span><br/>'))
                 .append($('<span>Subjects: '+test.subjects.join('; ')+'</span>'));
             $('#testinfo').append(el);
             $('#review').attr('href', 'questions.html?review=1&testid=' + testId)
