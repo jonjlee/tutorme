@@ -126,7 +126,7 @@
                     numcorrect++;
                 }
             }
-            $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length + ' (' + Math.round(numcorrect / test.questions.length) + '%)')
+            $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length + ' (' + Math.round(numcorrect / test.questions.length * 100) + '%)')
 
             var $subjects = $('#subjects');
             for (i in data) {
