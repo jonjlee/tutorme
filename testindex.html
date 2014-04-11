@@ -31,7 +31,7 @@
                 <div class="row">
                     <div class="col-xs-12">
                         <p class="text-muted" id="notests">
-                            Your tests will be listed here. Create new tests below.
+                            Your tests will be listed here. Create a new test below.
                         </p>
                         <div class="list-group" id="existingtests">
                         </div>
@@ -102,7 +102,7 @@
     <script src="static/js/data.js"></script>
     <script type="text/javascript">
     <!--
-        var testlistStorageKey = 'tutorme.capstone.testlist';
+        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
         var testbtns = '<div class="btn-group pull-right">' + 
                         '<a id="review" class="btn btn-sm btn-default">Review</a>'+
                         '<a id="grade" type="button" class="btn btn-sm btn-default">Summary</a>'+
@@ -130,16 +130,26 @@
             $(document).bind('keypress', 'shift+return', function() { window.location.href = "index.html" });
         }
 
+        function numTests(testlist) {
+            var num = 0;
+            for (var i in testlist) { 
+                if (!isNaN(i)) { num++; }
+            }
+            return num;
+        }
+
         function refreshTestList() {
-            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
-            if (testlist.length == 0) {
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
+            if (numTests(testlist) == 0) {
                 $notests.show();
                 $existingtests.hide();
             } else {
                 $notests.hide();
                 $existingtests.show();
                 $existingtests.empty();
-                for (i in testlist) {
+                for (i in testlist) (function(i) {
+                    // Ignore non-numeric entries (e.g. nextId), which are not tests
+                    if (isNaN(i)) { return; }
                     var t = testlist[i],
                         id = 't' + i,
                         el = $('<a href="questions.html?q=1&testid='+i+'" class="list-group-item" id="'+id+'"/>');
@@ -164,7 +174,7 @@
                     }).click(function() { 
                         return false;
                     }).tooltip({title: 'Double click to delete (cannot be recovered)', placement: 'bottom', trigger: 'click'});
-                }
+                })(i);
             }
         }
         function createTest() {
@@ -186,22 +196,23 @@
                 return alert('Could not create a test with ' + test.numquestions + ' questions.\n\n' + test.questions.length + ' remaining question(s) are available from the selected subjects.');
             }
 
-            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
-            testlist.push(test);
-            localStorage.setItem(testlistStorageKey, JSON.stringify(testlist));
+            // Store test by ID and increment next unique ID
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
+            testlist = Array.isArray(testlist) ? {} : testlist;
+            var testId = testlist.nextId || 1;
+            testlist[testId] = test;
+            testlist.nextId = testId+1;
+            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
             refreshTestList();
 
             // Start test 
-            window.location.href = 'questions.html?q=1&testid=' + (testlist.length-1);
+            window.location.href = 'questions.html?q=1&testid=' + (testId);
         }
         function deleteTest(index) {
-            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
-            testlist.splice(index, 1)
-            if (testlist.length == 0) {
-                localStorage.removeItem(testlistStorageKey);
-            } else {
-                localStorage.setItem(testlistStorageKey, JSON.stringify(testlist));
-            }
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
+            testlist = Array.isArray(testlist) ? {} : testlist;
+            delete testlist[index]
+            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
             refreshTestList();
         }
         function questionId(s, q) {
@@ -212,7 +223,7 @@
             return data[parseInt(parts[0])].questions[parseInt(parts[1])]
         }
         function getUsedQuestionIds() {
-            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]'),
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}'),
                 ids = [];
             for (var i in testlist) {
                 ids = ids.concat(testlist[i].questions)

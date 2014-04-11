@@ -541,7 +541,7 @@
 
         function numQuestions() {
             if (isTestMode()) {
-                var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+                var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
                 return testlist[testId].questions.length;
             } else {
                 return data[sectionNum].questions.length;
@@ -649,12 +649,12 @@
 
         function getTest() {
             if (!isTestMode()) { return null; }
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
             return testlist[testId]
         }
 
         function saveTest(test) {
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]');
+            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
             testlist[testId] = test;
             localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
         }
@@ -744,7 +744,9 @@
             if (!test) { return; }
 
             // Breadcrumb text
-            initBreadcrumb([{href: 'testindex.html', text: 'Practice Tests'}, 'Test '+(testId+1)])
+            initBreadcrumb([
+                {href: 'testindex.html', text: 'Practice Tests'},
+                'Test - Created ' + test.date])
 
             // Show/hide prev/next question arrows
             initQuestionNumber(testQIndex, test.questions.length);

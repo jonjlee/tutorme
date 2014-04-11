@@ -61,7 +61,7 @@
     <script type="text/javascript">
     <!--
         var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
-        var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '[]')
+        var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
         var test = null;
 
         function getUrlVars()
@@ -114,7 +114,7 @@
                     numcorrect++;
                 }
             }
-            $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length)
+            $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length + ' (' + Math.round(numcorrect / test.questions.length) + '%)')
 
             var $subjects = $('#subjects');
             for (i in data) {
