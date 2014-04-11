@@ -246,7 +246,8 @@
             var questionText = question.question;
             if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
                 (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
-                return /([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/.test(questionText);
+                var matches = questionText.match(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g);
+                return matches && (matches.length >= 3);
             }
             return false;
         }
@@ -280,7 +281,7 @@
                 if (sections.indexOf(section.section) >= 0) {
                     var numquestions = section.questions.length;
                     for (var j = 0; j < numquestions; j++) {
-                        ids.push(i + ',' + j);
+                        ids.push(questionId(i,j));
                     }
                 }
             }

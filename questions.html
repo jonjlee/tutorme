@@ -203,7 +203,7 @@
         var MASTERY_COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
 
         var sectionNum = 0, questionNum = 0, testId = NaN, reviewMode = false;
-        var startupTime = new Date(), startupElapsedMs = 0;
+        var startupTime = new Date(), startupElapsedMs = 0, elapsedTimeout = null;
 
         function initUI() {
             $breadcrumb = $('.breadcrumb');
@@ -704,6 +704,9 @@
         }
 
         function refreshTimer() {
+            // Stop any previous timer
+            clearTimeout(elapsedTimeout);
+
             // Update timer as (elapsed time at page load + time since load)
             var elapsedSinceStartup = new Date() - startupTime,
                 elapsedMs = (startupElapsedMs || 0) + elapsedSinceStartup,
@@ -715,7 +718,7 @@
             mm = (mm<10 ? '0' : '') + mm;
             ss = (ss<10 ? '0' : '') + ss;
             $time.text(h + ':' + mm); // + ':' + ss);
-            setTimeout(refreshTimer, 1000);
+            elapsedTimeout = setTimeout(refreshTimer, 1000);
 
             // Store elapsed time
             var test = getTest();
