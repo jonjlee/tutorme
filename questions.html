@@ -4,7 +4,6 @@
     <title>Clinical Transitions</title>
     <!-- Bootstrap -->
     <link href="static/thirdparty/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="static/thirdparty/cleditor/jquery.cleditor.css" />
     <link rel="stylesheet" type="text/css" href="static/thirdparty/font-awesome/css/font-awesome.min.css" />
     <link rel="stylesheet" type="text/css" href="static/thirdparty/jquery-notebook/jquery.notebook.min.css" />
     <link rel="stylesheet" href="static/thirdparty/fancybox/jquery.fancybox.css" type="text/css" media="screen" />
@@ -118,21 +117,11 @@
                         <div class="row" id="qtext"></div>
                     </div>
                 </div>
-                <div class="row hide" id="editor-panel">
-                    <textarea id="editor" class="form-control"></textarea>
-                </div>
                 <div class="row">&nbsp;</div>
                 
                 <div class="row">
                     <button class="btn btn-primary" id="show">Show Answer</button>
                     <a class="btn btn-primary pull-right" href="" id="submit">End Test</a>
-                    <div id="edit-buttons" class="pull-right hidden">
-                        <button type="button" class="btn btn-link" id="edit-question">Edit...</button>
-                    </div>
-                    <div id="save-buttons" class="pull-right" style="display:none">
-                        <button type="button" class="btn btn-link" id="cancel-edit">Cancel</button>
-                        <button type="button" class="btn btn-info" id="save-question">Save</button>
-                    </div>
                 </div>
                 
                 <div class="row" style="display:none" id="answer">
@@ -168,8 +157,6 @@
     <script src="static/thirdparty/jquery.min.js"></script>
     <script src="static/thirdparty/jquery.hotkeys.js"></script>
     <script src="static/thirdparty/jquery.textHighlighter.pack.min.js"></script>
-    <script src="static/thirdparty/cleditor/jquery.cleditor.min.js"></script>
-    <script src="static/thirdparty/cleditor/jquery.cleditor.table.min.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
     <script src="static/js/data.js"></script>
     <script src="static/thirdparty/jquery-notebook/jquery.notebook.min.js"></script>
@@ -192,18 +179,13 @@
     </script>
     <script type="text/javascript">
     <!--
-        var $qtext, $answer, $answerText, $editor;
+        var $qtext, $answer, $answerText;
 
         var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
         var NOTES_STORAGE_KEY = 'tutorme.capstone.notes';
         var COLOR_STORAGE_KEY = 'tutorme.capstone.color';
-        var EDITS_STORAGE_KEY = 'tutorme.capstone.edits';
         var HILITES_STORAGE_KEY = 'tutorme.capstone.highlights';
         var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
-        var EDITOR_SECTION_DELIMITER = '<center style="font-weight: normal;"><h2>Answer</h2></center>'
-        var EDITS_GFORM_URL = 'https://docs.google.com/forms/d/1VW7Hi-yxKKMBt5LN6YbIQ4JiP_EQG25R73a3I0zVlh0/formResponse';
-        var EDITS_GFORM_ID = 'entry.1916899601';
-        var EDITS_GFORM_TEXT = 'entry.1238214025';
         var MASTERY_COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
 
         var sectionNum = 0, questionNum = 0, testId = NaN, reviewMode = false;
@@ -256,13 +238,6 @@
             var test = getTest();
             startupElapsedMs = test && test.elapsedMs;
 
-            // Initialize question / answer editor
-            var controls = "bold italic underline strikethrough subscript superscript | font size style " +
-                  "color | bullets numbering | outdent " +
-                  "indent | alignleft center alignright | " +
-                  "image link unlink | source";
-            $editor = $('#editor').cleditor({ controls: controls })[0];
-
             // Initialize notes box
             var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
             if (notes['visible']) { showNotes(); }
@@ -302,10 +277,6 @@
             $('#mastery-3').click(function() { selectMastery(3); });
             $('#mastery-4').click(function() { selectMastery(4); });
             $('#mastery-5').click(function() { selectMastery(5); });
-
-            $('#edit-question').click(function() { toggleEditor(); });
-            $('#save-question').click(function() { toggleEditor(); });
-            $('#cancel-edit').click(function() { hideEditor(); });
 
             $('#show-notes').click(function() { showNotes(); });
             $('#hide-notes').click(function() { hideNotes(); });
@@ -445,76 +416,6 @@
                 
                 // Update notes editor
                 $notes.width($notes.parent().width());
-            }
-        }
-
-        function toggleEditor() {
-            if ($('#question-panel').is(':visible')) {
-                // Match editor height to question area before we hide it
-                $editor.options.height=$qtext.height() + 75; $editor.$main.height('auto'); $editor.refresh()
-
-                // Hide question, choices, answers and show editor
-                $('#question-panel').addClass('hide');
-                $('#editor-panel').removeClass('hide');
-                $('#edit-buttons').hide()
-                $('#save-buttons').show();
-                $answer.hide();
-
-                // Set editor text
-                refreshEditor();
-            } else {
-                hideEditor();
-                saveEdits(getQKey(), $('#editor').val());
-            }
-        }
-
-        function hideEditor() {
-            // Hide editor and show question / choices
-            $('#question-panel').removeClass('hide');
-            $('#editor-panel').addClass('hide');
-            $('#edit-buttons').show();
-            $('#save-buttons').hide();
-        }
-
-        function refreshEditor() {
-            $('#editor').val($qtext.html() + EDITOR_SECTION_DELIMITER + $answerText.html());
-            $editor.refresh();
-        }
-
-        function executeEdit($div, text, cache, key) {
-            var updated = false;
-            if ($div.html() != text) {
-                // Set local store and store whether or not it has changed
-                updated = (cache[key] != text);
-                cache[key] = text;
-
-                // Update page content
-                $div.html(text);
-                
-                // Send updates to google form to persist
-                $.ajax({
-                    type: 'POST',
-                    url: EDITS_GFORM_URL,
-                    data: EDITS_GFORM_ID + '=' + key + '&' + EDITS_GFORM_TEXT + '=' + escape(text),
-                    complete: function() {}
-                });
-            }
-            return updated;
-        }
-
-        function saveEdits(qkey, editorText) {
-            var editorText = editorText.split(EDITOR_SECTION_DELIMITER);
-            if (editorText.length < 2) {
-                return alert('Could not save because Answer section was deleted.');
-            }
-
-            // Save question and answer/tutorial sections on page and in local store
-            var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
-            var questionUpdated = executeEdit($qtext, editorText[0], edits, 'q,' + qkey);
-            var answerUpdated = executeEdit($answerText, editorText[1], edits, 'a,' + qkey);
-
-            if (questionUpdated || answerUpdated) {
-                localStorage.setItem(EDITS_STORAGE_KEY, JSON.stringify(edits));
             }
         }
 
@@ -827,7 +728,6 @@
 
             // Hide extraneous sections
             $showAnswer.hide();
-            hideEditor();
             hideMastery();
 
             // Update URL
@@ -843,10 +743,6 @@
 
         function showTutorialQuestion(data, sectionNum, qnum) {
             var section = data[sectionNum];
-            var edits = JSON.parse(localStorage.getItem(EDITS_STORAGE_KEY) || '{}');
-            var qkey = getQKey();
-            var editKey = 'q,' + qkey;
-            var answerKey = 'a,' + qkey;
             var i = 0;
 
             // Breadcrumb text
@@ -856,11 +752,11 @@
             initQuestionNumber(qnum, section.questions.length);
 
             // Question text and choices.
-            var questionText = edits[editKey] || section.questions[qnum].question;
+            var questionText = section.questions[qnum].question;
             initQuestionText(questionText);
 
             // Answers with explanations and tutorial section
-            var answerText = edits[answerKey] || section.questions[qnum].answer;
+            var answerText = section.questions[qnum].answer;
             $answerText.html(answerText);
             if (!reviewMode) {
                 $answer.hide();
@@ -869,9 +765,6 @@
             // Show "Show Answer" button and hide submit test button
             $showAnswer.show();
             $submit.hide();
-
-            // Make sure question is show and editor is hidden
-            hideEditor();
 
             // Update mastery selector
             showMastery();
