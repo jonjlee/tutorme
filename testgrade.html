@@ -26,6 +26,9 @@
                 <div class="row">
                     <div class="col-xs-12">
                         <h4>Test Information</h4>
+                        <div class="hidden" id="invalidtest">
+                            Invalid test ID. Please select another test from the <a href="testindex.html">Practice Tests</a> page.
+                        </div>
                         <div class="list-group" id="testinfo"></div>
                     </div>
                 </div>
@@ -54,81 +57,64 @@
         </div>
     </div>
 
+    <!-- Templates -->
+    <script type="text/html" id="test_info_tpl">
+        <li class="list-group-item">
+            <b>{{test.date}}</b><br/>
+            <span>{{test.numquestions}} questions | {{formatTime(test.elapsedMs, true)}} elapsed</span><br/>
+            <span>Subjects: {{test.subjects.join('; ')}}</span>
+        </li>
+    </script>
+    <script type="text/html" id="section_tpl">
+        <div class="row">
+            <div class="col-xs-12">
+                <h5>{{section}} <small>( {{correct}} / {{total}} correct)</small></h5>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12">
+                <span class="btn-group">{{questions}}</span>
+            </div>
+        </div>
+    </script>
+    <script type="text/html" id="question_tpl">
+        <a class="btn btn-default {{bkgClass}}" href="questions.html?review=1&testid={{testId}}&q={{questionNum}}">{{questionNum}}</a>
+    </script>
+
+    <!-- Scripts -->
     <script src="static/thirdparty/jquery.min.js"></script>
     <script src="static/thirdparty/jquery.hotkeys.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/util.js"></script>
     <script src="static/js/data.js"></script>
     <script type="text/javascript">
     <!--
-        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
-        var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
-        var test = null;
-
-        function getUrlVars()
-        {
-            var vars = [], hash;
-            var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-            for(var i = 0; i < hashes.length; i++)
-            {
-                hash = hashes[i].split('=');
-                vars.push(hash[0]);
-                vars[hash[0]] = hash[1];
-            }
-            return vars;
-        }
-
-        function questionFromId(data, id) {
-            var parts = id.split(',');
-            return data[parseInt(parts[0])].questions[parseInt(parts[1])]
-        }
-
-        function getElapsed(ms) {
-            ms = ms || 0;
-            var elapsedMin = ms / 1000 / 60,
-                h = Math.floor(elapsedMin / 60),
-                mm = Math.floor(elapsedMin) % 60,
-                ss = Math.floor(ms / 1000) % 60;
-
-            mm = (mm<10 ? '0' : '') + mm;
-            ss = (ss<10 ? '0' : '') + ss;
-            return (h + ':' + mm + ':' + ss);
-        }
-
-        function getCorrect(question) {
-            if (question.correct) {
-                return question.correct;
-            } else {
-                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
-                var matches = question.answer.match(pattern);
-                if (matches) {
-                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
-                }
-            }
-        }
+        var testId = -1, test = null;
 
         function initTestInfo() {
-            var el = $('<li class="list-group-item"/>');
-            el.append($('<b>'+test.date+'</b><br/>'))
-                .append($('<span>'+test.numquestions+' questions | '+getElapsed(test.elapsedMs)+' elapsed </span><br/>'))
-                .append($('<span>Subjects: '+test.subjects.join('; ')+'</span>'));
-            $('#testinfo').append(el);
-            $('#review').attr('href', 'questions.html?review=1&testid=' + testId)
+            var test_info = tmpl('test_info_tpl', {test: test});
+            $('#testinfo').append(test_info);
+            $('#review').attr('href', 'questions.html?review=1&q=1&testid=' + testId)
         }
 
         function initPerformance() {
+            // Display the number of correct answers and percentage score
             var numcorrect = 0,
                 correct = [];
             for (var i in test.questions) {
                 var question = questionFromId(data, test.questions[i])
                     answer = test.answers && test.answers[i] || null,
-                    correct[i] = getCorrect(question);
+                    correct[i] = correctAnswerFromQuestion(question);
                 if (answer == correct[i]) {
                     numcorrect++;
                 }
             }
             $('#performance').html('<strong>Number correct:</strong> ' + numcorrect + ' out of ' + test.questions.length + ' (' + Math.round(numcorrect / test.questions.length * 100) + '%)')
 
-            var $subjects = $('#subjects');
+            // Display the questions divided into subjects
+            var $subjects = $('#subjects'),
+                sectionTpl = tmpl('section_tpl'),
+                questionTpl = tmpl('question_tpl');
             for (i in data) {
                 if (test.subjects.indexOf(data[i].section) >= 0) {
                     numcorrect = 0;
@@ -140,24 +126,27 @@
                             qIdx = test.questions.indexOf(qkey),
                             answer = test.answers && test.answers[qIdx] || null;
                         if (qIdx >= 0) {
-                            var id = 's' + i + '-q' + j,
-                                href = 'questions.html?review=1&testid=' + testId + '&q=' + (qIdx+1),
-                                correct = (getCorrect(question) == answer) ? 1 : 0;
-                                bkgClass = correct && 'btn-success' || answer && 'btn-danger' || '';
-                            
+                            var correct = (correctAnswerFromQuestion(question) == answer) ? 1 : 0;
                             numcorrect += correct;
                             qlist.push({
                                 qIdx: qIdx,
-                                el: '<a class="btn btn-default ' + bkgClass + '" href="' + href + '">' + (qIdx+1) + '</a>'
+                                el: questionTpl({
+                                    bkgClass: correct && 'btn-success' || answer && 'btn-danger' || '',
+                                    testId: testId,
+                                    questionNum: qIdx+1
+                                })
                             });
                         }
                     }
                     qlist.sort(function(a,b) { return a.qIdx - b.qIdx; });
-                    var questions = '<div class="row"><div class="col-xs-12"><span class="btn-group">' +
-                        qlist.map(function(q) { return q.el; }).join('\n') +
-                        '</span></div></div>';
-
-                    $subjects.append('<div class="row"><div class="col-xs-12"><h5>' + data[i].section + ' <small>(' + numcorrect + ' / ' + qlist.length + ' correct)</small></h5></div></div>' + questions)
+                    
+                    var section = sectionTpl({
+                            section: data[i].section,
+                            correct: numcorrect,
+                            total: qlist.length,
+                            questions: qlist.map(function(q) { return q.el; }).join('\n')
+                        });
+                    $subjects.append(section);
                 }
             }
         }
@@ -168,16 +157,19 @@
             $(document).bind('keypress', 'shift+return', function() { window.location.href = "testindex.html" });
         }
 
-        // Set up keyboard shortcuts and button actions
-        var urlVars = getUrlVars();
-        testId = parseInt(urlVars.testid);
-        if (isNaN(testId) || testId >= testlist.length) {
-            $('#testinfo').html('Invalid test ID. Please select another test from the <a href="testindex.html">Practice Tests</a> page.');
-            $('#performance').parent().hide();
-        } else {
-            test = testlist[testId];
-            initUI();
-        }
+        $(document).ready(function() {
+            var urlVars = getUrlVars(),
+                storage = new Storage();
+            
+            testId = parseInt(urlVars.testid);
+            test = storage.getTestList(testId);
+            if (!test) {
+                $('#invalidtest').removeClass('hidden');
+                $('#performance').parent().hide();
+            } else {
+                initUI();
+            }
+        });
     -->
     </script>
     <!-- Google analytics -->

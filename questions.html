@@ -94,9 +94,9 @@
                             </h3>
                         </div>
                     </div>
-                    <div class="col-sm-4 hidden" style="padding-top: 7px;" id="timer">
+                    <div class="col-sm-4 hidden" style="padding-top: 7px;">
                         <span>
-                            <h3><small>Elapsed Time: <span id="time"></span></small></h3>
+                            <h3><small>Elapsed Time: <span id="timer"></span></small></h3>
                         </span>
                     </div>
                     <div class="col-sm-4" id="mastery">
@@ -121,7 +121,7 @@
                 
                 <div class="row">
                     <button class="btn btn-primary" id="show">Show Answer</button>
-                    <a class="btn btn-primary pull-right" href="" id="submit">End Test</a>
+                    <a class="btn btn-primary pull-right" style="display:none;" href="" id="submit">End Test</a>
                 </div>
                 
                 <div class="row" style="display:none" id="answer">
@@ -158,176 +158,589 @@
     <script src="static/thirdparty/jquery.hotkeys.js"></script>
     <script src="static/thirdparty/jquery.textHighlighter.pack.min.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
-    <script src="static/js/data.js"></script>
     <script src="static/thirdparty/jquery-notebook/jquery.notebook.min.js"></script>
     <script type="text/javascript" src="static/thirdparty/fancybox/jquery.fancybox.pack.js"></script>
+    <script src="static/js/data.js"></script>
+    <script src="static/js/util.js"></script>
     <script type="text/javascript">
     <!--
-        function getUrlVars()
-        {
-            var vars = [], hash;
-            var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-            for(var i = 0; i < hashes.length; i++)
-            {
-                hash = hashes[i].split('=');
-                vars.push(hash[0]);
-                vars[hash[0]] = hash[1];
+        // elapsedTimeout is a global var to ensure there is only ever one timer on the page.
+        var elapsedTimeout = null;
+
+        // -----------------------------------------------------------------
+        // Main UI functionality: question, choices, tutorial, and config
+        // -----------------------------------------------------------------
+        var UI = function(data, qparams) {
+            this.$breadcrumb = $('.breadcrumb');
+            this.$qtext = $('#qtext');
+            this.$answer = $('#answer');
+            this.$answerText = $('#answer-text');
+            this.$source = $('#source');
+            this.$search = $('#search');
+            this.$searchResults = $('#search-dlg');
+            this.$config = $('#config-dlg');
+
+            var testId = parseInt(qparams.testid),
+                sectionNum = parseInt(qparams.section),
+                questionNum = parseInt(qparams.q),
+                getQKey = this.getQKey.bind(this);
+
+            sectionNum = isNaN(sectionNum) ? 0 : Math.max(sectionNum-1);
+            questionNum = isNaN(questionNum) ? 0 : Math.max(0, questionNum-1);
+
+            // Initialize common UI components
+            this.data = data;
+            this.storage = new Storage(this.getQKey.bind(this));
+            this.testMode = !isNaN(testId),
+            this.reviewMode = !!qparams.review,
+            this.colorScheme = new ColorScheme('body', '#main', '#dark-color-scheme-option', this.storage);
+            this.notes = new Notes('#notes-panel', '#notes', '#notes-editor', '#show-notes-option', '#show-notes', '#hide-notes', '#answer-text', this.storage);
+            this.navigation = new Navigation('.prev', '.next', '#show', '#answer', '#qnum', sectionNum, questionNum, data.length, this);
+            this.search = new Search(data, '#search', '#search-dlg');
+
+            if (this.testMode) {
+                // UI components for practice test mode
+                $('#mastery').hide();
+                $('#show').hide();
+                this.testing = new Testing(data, testId, this.reviewMode, '#timer', '#submit', this.storage);
+            } else {
+                // Mastery feature is only available in tutorial mode
+                this.mastery = new Mastery('#mastery', '#mastery-', this.storage);
             }
-            return vars;
-        }
-    -->
-    </script>
-    <script type="text/javascript">
-    <!--
-        var $qtext, $answer, $answerText;
-
-        var MASTERY_STORAGE_KEY = 'tutorme.capstone.mastery';
-        var NOTES_STORAGE_KEY = 'tutorme.capstone.notes';
-        var COLOR_STORAGE_KEY = 'tutorme.capstone.color';
-        var HILITES_STORAGE_KEY = 'tutorme.capstone.highlights';
-        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
-        var MASTERY_COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
-
-        var sectionNum = 0, questionNum = 0, testId = NaN, reviewMode = false;
-        var startupTime = new Date(), startupElapsedMs = 0, elapsedTimeout = null;
-
-        function initUI() {
-            $breadcrumb = $('.breadcrumb');
-            $time = $('#time');
-            $qtext = $('#qtext');
-            $showAnswer = $('#show');
-            $submit = $('#submit');
-            $answer = $('#answer');
-            $answerText = $('#answer-text');
-            $source = $('#source');
-            $notesPanel = $('#notes-panel');
-            $notes = $('#notes');
-            $notesEditor = $('#notes-editor');
-            $search = $('#search');
-            $searchResults = $('#search-dlg');
-            $config = $('#config-dlg');
-            $showNotesOpt = $('#show-notes-option');
-            $darkColorSchemeOpt = $('#dark-color-scheme-option')
-
-            $(document).bind('keypress', 's', toggleAnswer);
-            $(document).bind('keypress', 'n', toggleNotes);
-            $(document).bind('keypress', 'ctrl+d', toggleDark);
-            $(document).bind('keypress', 'ctrl+0', clearMastery);
-            $(document).bind('keypress', 'a', selectOption.bind(this, 0));
-            $(document).bind('keypress', 'b', selectOption.bind(this, 1));
-            $(document).bind('keypress', 'c', selectOption.bind(this, 2));
-            $(document).bind('keypress', 'd', selectOption.bind(this, 3));
-            $(document).bind('keypress', 'e', selectOption.bind(this, 4));
-            $(document).bind('keypress', 'f', selectOption.bind(this, 5));
-            $(document).bind('keypress', 'g', selectOption.bind(this, 6));
-            $(document).bind('keypress', '0', selectMastery.bind(this, -1));
-            $(document).bind('keypress', '1', selectMastery.bind(this, 1));
-            $(document).bind('keypress', '2', selectMastery.bind(this, 2));
-            $(document).bind('keypress', '3', selectMastery.bind(this, 3));
-            $(document).bind('keypress', '4', selectMastery.bind(this, 4));
-            $(document).bind('keypress', '5', selectMastery.bind(this, 5));
-            $(document).bind('keydown', 'left', prevQuestion);
-            $(document).bind('keydown', 'right', nextQuestion);
-            $(document).bind('keydown', 'shift+left', prevSection);
-            $(document).bind('keydown', 'shift+right', nextSection);
-            $(document).bind('keypress', 'return', nextQuestion);
-            $(document).bind('keypress', 'shift+return', gotoDashboard);
-            $(search).bind('keypress', 'return', executeSearch);
-
-            // Initialize base elapsed time for test mode
-            var test = getTest();
-            startupElapsedMs = test && test.elapsedMs;
-
-            // Initialize notes box
-            var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            if (notes['visible']) { showNotes(); }
-
-            var notes_controls = "bold italic underline | size " +
-                  "color | bullets numbering";
-            $notesEditor.notebook({ placeholder: '', modifiers: ['bold', 'italic', 'underline', 'ol', 'ul'] });
-            $notesEditor.on('input', saveNotes);
-            $notesEditor.keydown(handleNotesKeydown);
-            $notes.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
-
-            // Initialize text highlighter plugin and remove highlights on click
-            if (!isTestMode() || reviewMode) {
-                var save = this.deferSaveHighlights.bind(this);
-                $qtext.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
-                $qtext.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
-                $answerText.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
-                $answerText.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+            if (!this.testMode || this.reviewMode) {
+                // Highlights are available in tutorial and review modes
+                this.highlights = new Highlights('#qtext', '#answer-text', this.storage);
             }
+
+            // Shortcut keys
+            $(document).bind('keypress', 'a', this.selectOption.bind(this, 0));
+            $(document).bind('keypress', 'b', this.selectOption.bind(this, 1));
+            $(document).bind('keypress', 'c', this.selectOption.bind(this, 2));
+            $(document).bind('keypress', 'd', this.selectOption.bind(this, 3));
+            $(document).bind('keypress', 'e', this.selectOption.bind(this, 4));
+            $(document).bind('keypress', 'f', this.selectOption.bind(this, 5));
+            $(document).bind('keypress', 'g', this.selectOption.bind(this, 6));
+        };
+        UI.prototype.getQKey = function() {
+            return (this.testing) ?
+                this.testing.getQuestionId(this.navigation.questionNum) :
+                this.navigation.sectionNum + ',' + this.navigation.questionNum;
+        },
+        UI.prototype.numQuestions = function() {
+            return (this.testing) ?
+                this.testing.numQuestions :
+                this.data[this.navigation.sectionNum].questions.length;
+        };
+        UI.prototype.selectOption = function(opt) {
+            $($('input[type=radio]')[opt]).prop('checked', true);
+            if (this.testing) {
+                this.testing.selectOption(this.navigation.questionNum, opt+1);
+            }
+        };
+        UI.prototype.initBreadcrumb = function(paths) {
+            this.$breadcrumb.find('li').remove();
+            this.$breadcrumb.append('<li><a href="index.html">Capstone</a></li>');
+            for (var i in paths) {
+                var path = paths[i];
+                if (typeof(path) === 'string') {
+                    this.$breadcrumb.append('<li class="active"><span href="#">'+path+'</span></li>');
+                } else {
+                    this.$breadcrumb.append('<li><a href="'+path.href+'">'+path.text+'</a></li>');
+                }
+            }
+        };
+        UI.prototype.initQuestionText = function(questionText) {
+            // Add radio button before each choice if we can. Don't add radio
+            // button for matching questions (those with choices A-Z. and 1-9.) or multiple part questions
+            // (those with more than one A. answer), which mess up the A-Z shortcut keys.
+            if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
+                    (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
+                questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input type="radio" name="opt"></input> &nbsp;&nbsp; $1');
+            }
+            this.$qtext.html(questionText);
+        };
+        UI.prototype.initMedia = function() {
+            $.fancybox.close(true);
+            $('.fancybox').fancybox();
+        };
+        UI.prototype.showQuestion = function(sectionNum, questionNum) {
+            sectionNum = sectionNum || this.navigation.sectionNum;
+            questionNum = questionNum || this.navigation.questionNum;
+
+            // Get testing / tutorial specific question and answer data
+            var section, question, breadcrumb, numQuestions, selectedAnswer, correct, source;
+            if (this.testing) {
+                var testQId = this.testing.getQuestionId(questionNum),
+                    id_parts = testQId.split(',');
+                    
+                sectionNum = parseInt(id_parts[0]);
+                var actualQuestionNum = parseInt(id_parts[1]);
+
+                section = this.data[sectionNum];
+                question = section.questions[actualQuestionNum];
+
+                breadcrumb = [{href: 'testindex.html', text: 'Practice Tests'}, 'Test - Created ' + this.testing.test.date ];
+                numQuestions = this.testing.numQuestions;
+                
+                selectedAnswer = this.testing.getUserAnswer(actualQuestionNum);
+                correct = this.reviewMode && correctAnswerFromQuestion(question)
+                source = '<p><small><a href="questions.html?&review=1&section=' + (sectionNum+1) + '&q=' + (actualQuestionNum+1) + '">' + section.section + ' #' + (actualQuestionNum+1) + '</a></small></p>';
+
+                // Store the last visited question for the practice test
+                this.testing.setLastQuestion(actualQuestionNum);
+            } else {
+                section = this.data[sectionNum];
+                question = section.questions[questionNum];
+
+                breadcrumb = [section.section];
+                numQuestions = this.data[sectionNum].questions.length;
+                
+                selectedAnswer = null;
+                correct = null;
+                source = null;
+            }
+
+            // Breadcrumb text
+            this.initBreadcrumb(breadcrumb);
+            
+            // Update mastery selector
+            if (this.mastery) { this.mastery.read(); }
+
+            // Show/hide prev/next question arrows
+            this.navigation.initQuestionNumber(questionNum, numQuestions);
+
+            // Question text and choices
+            this.initQuestionText(question.question);
+
+            // Select user's answer and correct answer
+            if (selectedAnswer) { this.selectOption(selectedAnswer-1); }
+            if (correct) { this.testing.selectCorrect(selectedAnswer, correct); }
+
+            // Fill in answer with source and always start with it hidden, unless in review mode
+            this.$answerText.html(question.answer);
+            if (source) { this.$source.html(source); }
+            if (this.reviewMode) {
+                this.$answer.show();
+            } else {
+                this.$answer.hide();
+            }
+
+            // Restore highlights
+            if (this.highlights) { this.highlights.read(); }
+
+            // Enable pop up media
+            this.initMedia();
+
+            // Restore notes
+            this.notes.restore();
+
+            // Update URL
+            if (window.history) {
+                var urlVars = getUrlVars();
+                if (urlVars.q != '' + (questionNum+1)) {
+                    window.history.pushState('', '', '?' + 
+                        'q=' + (questionNum+1) +
+                        (this.testMode ? '' : '&section='+(sectionNum+1)) + 
+                        (this.testMode ? '&testid='+this.testing.testId : '') + 
+                        (this.reviewMode ? '&review=1' : ''));
+                    // Also post page view to google analytics
+                    if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }
+                    PUSHED_STATE = true;
+                }
+            }
+        };
+
+        // ------------------------------------------------
+        // Switch between light and dark color schemes
+        // ------------------------------------------------
+        var ColorScheme = function(body, main, opt, storage) {
+            this.$body = $(body);
+            this.$main = $(main);
+            this.$opt = $(opt);
+            this.storage = storage;
+            this.isDark = false;
+
+            // Shortcut key
+            $(document).bind('keypress', 'ctrl+d', this.toggle.bind(this));
+
+            // Event handler for dark color scheme option
+            this.$opt.change(this.handleOptChange.bind(this));
 
             // Initialize colorscheme
-            var color = localStorage.getItem(COLOR_STORAGE_KEY) || '';
+            var color = this.storage.getColor();
             if (color == 'dark') {
-                toggleDark();
-                $darkColorSchemeOpt.prop('checked', true);
+                this.dark();
+                this.$opt.prop('checked', true);
+            }
+        }
+        ColorScheme.DARK_BKG = 'rgb(50, 50, 50)';
+        ColorScheme.DARK_COLOR = 'rgb(230, 230, 230)';
+        ColorScheme.LIGHT_BKG = 'url(../img/bkg3.jpg) no-repeat center center fixed'
+        ColorScheme.LIGHT_COLOR = 'white'
+        ColorScheme.prototype.toggle = function() {
+            return this.isDark && this.normal() || this.dark();
+        };
+        ColorScheme.prototype.normal = function() {
+            this.$body.css('background', 'url(../img/bkg3.jpg) no-repeat center center fixed');
+            this.$main.css('background-color', 'white');
+            this.$opt.prop('checked', false);
+            this.isDark = false;
+            STORAGE.clearColor();
+        };
+        ColorScheme.prototype.dark = function () {
+            this.$body.css('background', 'rgb(50, 50, 50)');
+            this.$main.css('background-color', 'rgb(230, 230, 230)');
+            this.$opt.prop('checked', true);
+            this.isDark = true;
+            STORAGE.saveColor('dark');
+        };
+        ColorScheme.prototype.handleOptChange = function() {
+            return (this.$opt.is(':checked')) && this.dark() || this.normal();
+        };
+
+        // ------------------------------------------------
+        // Practice test mode
+        // ------------------------------------------------
+        var Testing = function(data, testId, reviewMode, timer, submit, storage) {
+            this.$timer = $(timer);
+            this.$timerContainer = this.$timer.closest('div');
+            this.$submit = $(submit);
+            this.testId = testId;
+            this.storage = storage;
+            this.test = this.getTest();
+            this.numQuestions = this.test && this.test.questions.length || 0;
+            this.startupElapsedMs = this.test && this.test.elapsedMs || 0;
+
+            if (!reviewMode) {
+                // Activate timer unless in review mode
+                this.$timerContainer.removeClass('hidden');
+                this.refreshTimer(); 
+
+                // Show End Test button and set button target
+                this.$submit.show();
+                this.$submit.attr('href', 'testgrade.html?testid=' + testId);
             }
 
-            // Set submit test target
-            $submit.attr('href', 'testgrade.html?testid=' + testId);
+        };
+        Testing.prototype.getQuestionId = function(questionNum) {
+            if (!this.test || questionNum >= this.test.questions.length ) { return null; }
+            return this.test.questions[questionNum];
+        };
+        Testing.prototype.setLastQuestion = function(questionNum) {
+            var test = this.getTest();
+            test.lastQuestion = questionNum+1;
+            this.saveTest(test);
+        };
+        Testing.prototype.getTest = function() {
+            var testlist = this.storage.getTestList();
+            return testlist[this.testId]
+        };
+        Testing.prototype.saveTest = function(test) {
+            var testlist = this.storage.getTestList();
+            testlist[this.testId] = test;
+            this.storage.saveTestList(testlist);
+        };
+        Testing.prototype.getUserAnswer = function(questionNum) {
+            return (this.test.answers && this.test.answers[questionNum] || null);
+        };
+        Testing.prototype.selectCorrect = function(user, correct) {
+            var opts = $('input[type=radio]');
+            if (correct && correct <= opts.length) {
+                $('<span><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
+                $(opts[correct-1]).prev().css('margin-left', '-20px')
+            }
+            if (user && user != correct) {
+                $('<span><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
+                $(opts[user-1]).prev().css('margin-left', '-20px')
+            }
+        };
+        Testing.prototype.selectOption = function(questionNum, opt) {
+            var test = this.getTest();
+            if (!test) { return; }
+
+            test.answers = test.answers || [];
+            test.answers[questionNum] = opt;
+            this.saveTest(test);
+        }
+        Testing.prototype.refreshTimer = function() {
+            // Stop any previous timer
+            clearTimeout(elapsedTimeout);
+
+            // Update timer as (elapsed time at page load + time since load)
+            var elapsedSinceStartup = new Date() - STARTUP_TIME,
+                elapsedMs = (this.startupElapsedMs || 0) + elapsedSinceStartup,
+                elapsedMin = elapsedMs / 1000 / 60,
+                h = Math.floor(elapsedMin / 60),
+                mm = Math.floor(elapsedMin) % 60,
+                ss = Math.floor(elapsedMs / 1000) % 60;
+
+            mm = (mm<10 ? '0' : '') + mm;
+            ss = (ss<10 ? '0' : '') + ss;
+            this.$timer.text(h + ':' + mm + ':' + ss);
+            elapsedTimeout = setTimeout(this.refreshTimer.bind(this), 1000);
+
+            // Store elapsed time
+            var test = this.getTest();
+            test.elapsedMs = elapsedMs;
+            this.saveTest(test);
+        };
+
+        // ------------------------------------------------
+        // Manage the user's mastery recall
+        // ------------------------------------------------
+        var Mastery = function(container, buttonPrefix, storage) {
+            this.$container = $(container);
+            this.buttonPrefix = buttonPrefix;
+            this.storage = storage;
+
+            // Shortcut key
+            $(document).bind('keypress', '0', this.select.bind(this, -1));
+            $(document).bind('keypress', '1', this.select.bind(this, 1));
+            $(document).bind('keypress', '2', this.select.bind(this, 2));
+            $(document).bind('keypress', '3', this.select.bind(this, 3));
+            $(document).bind('keypress', '4', this.select.bind(this, 4));
+            $(document).bind('keypress', '5', this.select.bind(this, 5));
+
+            // Button click handlers
+            $(buttonPrefix + '1').click(function() { selectMastery(1); });
+            $(buttonPrefix + '2').click(function() { selectMastery(2); });
+            $(buttonPrefix + '3').click(function() { selectMastery(3); });
+            $(buttonPrefix + '4').click(function() { selectMastery(4); });
+            $(buttonPrefix + '5').click(function() { selectMastery(5); });
+        };
+        Mastery.prototype.clear = function() {
+            this.storage.clearMastery();
+            this.select(0);
+        };
+        Mastery.prototype.read = function() {
+            this.select(this.storage.getCurrentMastery() || 0);
+        };
+        Mastery.prototype.select = function(n) {
+            this.$container.find('button').removeClass('active btn-info');
+            if (n > 0) {
+                this.$container.find(this.buttonPrefix + n).addClass('active btn-info');
+            }
+
+            if (n <= 0) {
+                this.storage.clearCurrentMastery();
+            } else {
+                this.storage.saveCurrentMastery(n);
+            }
+        };
+
+        // ------------------------------------------------
+        // Manage user notes in the answer section
+        // ------------------------------------------------
+        var Notes = function(panel, affixedContainer, editor, opt, showLink, hideLink, answerText, storage) {
+            var $answerText = $(answerText);
+            this.$panel = $(panel);
+            this.$affixedContainer = $(affixedContainer);
+            this.$editor = $(editor);
+            this.$opt = $(opt);
+            this.$showLink = $(showLink);
+            this.$hideLink = $(hideLink);
+            this.$answerText = $answerText;
+            this.storage = storage;
+
+            // Initialize notes box
+            if (this.storage.getNotes('visible')) { this.show(); }
+            this.$editor.notebook({ placeholder: '', modifiers: ['bold', 'italic', 'underline', 'ol', 'ul'] });
+            this.$editor.on('input', this.save.bind(this));
+            this.$editor.keydown(this.handleKeydown.bind(this));
+            this.$affixedContainer.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
+
+            // Hide / show link and config option handlers
+            this.$showLink.click(this.show.bind(this));
+            this.$hideLink.click(this.hide.bind(this));
+            this.$opt.change(this.handleOptChange.bind(this));
+        };
+        Notes.prototype.toggle = function() {
+            return this.$opt.is(':checked') && hideNotes() || showNotes();
+        };
+        Notes.prototype.show = function() {
+            this.$answerText.removeClass('col-md-12').addClass('col-md-9');
+            this.$showLink.hide();
+            this.$panel.show();
+            this.$affixedContainer.show();
+            this.updateOpt(true);
+        };
+        Notes.prototype.hide = function() {
+            $answerText.removeClass('col-md-9').addClass('col-md-12');
+            this.$showLink.show();
+            this.$panel.hide();
+            this.$affixedContainer.hide();
+            this.updateOpt(false);
+        };
+        Notes.prototype.save = function() {
+            var notes = this.$editor.html();
+            if (this.storage.getCurrentNotes() != notes) {
+                this.storage.saveCurrentNotes($.trim(notes));
+            }
+        };
+        Notes.prototype.restore = function() {
+            var notes = this.storage.getCurrentNotes() || '';
+            this.$editor.html(notes);
+        };
+        Notes.prototype.updateOpt = function(visible) {
+            var notes = this.storage.getNotes();
+            notes['visible'] = visible;
+            this.storage.saveNotes(notes);
+            this.$opt.prop('checked', visible);
+        };
+        Notes.prototype.handleKeydown = function(e) {
+            if (e.keyCode == 27) { this.$editor.blur(); }
+        };
+        Notes.prototype.handleOptChange = function() {
+            return this.$opt.is(':checked') && showNotes() || hideNotes();
+        };
+        Notes.prototype.refreshWidth = function() {
+            this.$affixedContainer.width(this.$affixedContainer.parent().width());
+        };
+
+        // ------------------------------------------------
+        // Manage user's highlighting
+        // ------------------------------------------------
+        var Highlights = function(qtext, answerText, storage) {
+            var $qtext = $(qtext),
+                $answerText = $(answerText),
+                save = this.deferSave.bind(this);
+
+            this.$qtext = $qtext;
+            this.$answerText = $answerText;
+            this.storage = storage;
+
+            // Initialize text highlighter plugin and remove highlights on click
+            this.$qtext.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+            this.$qtext.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+            this.$answerText.textHighlighter({ onAfterHighlight: save, onRemoveHighlight: save });
+            this.$answerText.on('click', '.highlighted', function() { $qtext.getHighlighter().removeHighlights(this); });
+        };
+        Highlights.prototype.deferSave = function(highlights, range) {
+            // Wait for current call stack to clear before calling saveHighlights(). This allows for
+            // highlights to be applied / removed by the JQuery TextHighlighter plugin after it triggers
+            // the respective event.
+            setTimeout(this.save.bind(this, highlights, range), 1);
+            return true;
+        };
+        Highlights.prototype.save = function(highlights, range) {
+            // Serialize currently highlighted text
+            var qhilites = this.$qtext.getHighlighter().serializeHighlights();
+            var ahilites = this.$answerText.getHighlighter().serializeHighlights();
+            
+            // Determine if anything has been updated, and store new highlights
+            var qupdated = (this.storage.getCurrentHilites('q') != qhilites);
+            var aupdated = (this.storage.getCurrentHilites('a') != ahilites);
+
+            // Save highlights
+            if (qupdated) { this.storage.saveCurrentHilites('q', qhilites); }
+            if (aupdated) { this.storage.saveCurrentHilites('a', ahilites); }
+        };
+        Highlights.prototype.read = function() {
+            var qhilites = this.storage.getCurrentHilites('q');
+            var ahilites = this.storage.getCurrentHilites('a');
+            if (qhilites) { this.$qtext.getHighlighter().deserializeHighlights(qhilites); }
+            if (ahilites) { this.$answerText.getHighlighter().deserializeHighlights(ahilites); }
+        }
+
+        // ----------------------------------------------------------------------
+        // Navigate between questions, sections, hiding/showing answer, etc
+        // ----------------------------------------------------------------------
+        var Navigation = function(prev, next, showAnswer, answer, qnum, sectionNum, questionNum, numSections, ui) {
+            this.$prev = $(prev);
+            this.$next = $(next);
+            this.$showAnswer = $(showAnswer);
+            this.$answer = $(answer);
+            this.$qnum = $(qnum);
+            this.sectionNum = sectionNum;
+            this.questionNum = questionNum;
+            this.numSections = numSections;
+            this.ui = ui;
+
+            // Shortcut keys
+            $(document).bind('keydown', 'left', this.prevQuestion.bind(this));
+            $(document).bind('keydown', 'right', this.nextQuestion.bind(this));
+            $(document).bind('keypress', 'return', this.nextQuestion.bind(this));
+            $(document).bind('keypress', 'shift+return', this.gotoDashboard.bind(this));
 
             // Event handlers
-            $('.prev').click(function() { prevQuestion(); });
-            $('.next').click(function() { nextQuestion(); });
-            $('#show').click(function() { toggleAnswer(); });
-            $('#mastery-1').click(function() { selectMastery(1); });
-            $('#mastery-2').click(function() { selectMastery(2); });
-            $('#mastery-3').click(function() { selectMastery(3); });
-            $('#mastery-4').click(function() { selectMastery(4); });
-            $('#mastery-5').click(function() { selectMastery(5); });
+            this.$prev.click(this.prevQuestion.bind(this));
+            this.$next.click(this.nextQuestion.bind(this));
 
-            $('#show-notes').click(function() { showNotes(); });
-            $('#hide-notes').click(function() { hideNotes(); });
+            if (!this.ui.testMode) {
+                // Shortcut keys and event handlers specific for tutorial mode
+                $(document).bind('keypress', 's', this.toggleAnswer.bind(this));
+                $(document).bind('keydown', 'shift+left', this.prevSection.bind(this));
+                $(document).bind('keydown', 'shift+right', this.nextSection.bind(this));
 
-            $showNotesOpt.change(handleNotesOpt);
-            $darkColorSchemeOpt.change(handleDarkColorSchemeOpt);
+                this.$showAnswer.click(this.toggleAnswer.bind(this));
+            }
+        };
+        Navigation.prototype.gotoDashboard = function() {
+            window.location.href = this.ui.testMode && "testindex.html" || "index.html";
         }
-
-        function gotoDashboard() {
-            if (isTestMode()) {
-                window.location.href = "testindex.html";
+        Navigation.prototype.initQuestionNumber = function(qnum, numqs) {
+            // Show/hide prev/next question arrows
+            if (qnum == 0) {
+                this.$prev.hide();
+                this.$next.show();
+            } else if (qnum < numqs-1) {
+                this.$prev.show();
+                this.$next.show();
             } else {
-                window.location.href = "index.html";
+                this.$prev.show();
+                this.$next.hide();
+            }
+
+            // "Question x of y" and actual question text
+            this.$qnum.text(qnum+1 + ' of ' + numqs)
+        };
+        Navigation.prototype.nextQuestion = function() {
+            if (this.questionNum < this.ui.numQuestions()-1 ) {
+                this.ui.showQuestion(this.sectionNum, ++this.questionNum);
             }
         }
-
-        function toggleDark() {
-            if ($('#main').css('background-color') == 'rgb(230, 230, 230)') {
-                showNormalColors();
-            } else {
-                showDarkColors();
+        Navigation.prototype.prevQuestion = function() {
+            if (this.questionNum > 0) {
+                this.ui.showQuestion(this.sectionNum, --this.questionNum);
             }
-        }
-
-        function handleDarkColorSchemeOpt() {
-            if ($(this).is(':checked')) {
-                showDarkColors();
-            } else {
-                showNormalColors();
+        };
+        Navigation.prototype.nextSection = function() {
+            if (this.sectionNum < this.numSections-1) {
+                this.questionNum = 0;
+                this.ui.showQuestion(++this.sectionNum, this.questionNum);
             }
-        }
+        };
+        Navigation.prototype.prevSection = function() {
+            if (this.sectionNum > 0) {
+                this.questionNum = 0;
+                this.ui.showQuestion(--this.sectionNum, this.questionNum);
+            }
+        };
+        Navigation.prototype.toggleAnswer = function() {
+            this.$answer.toggle();
+            if (this.$answer.is(':visible')) {
+                $('html,body').animate({scrollTop: this.$answer.offset().top - 250}, 'fast');
+                
+                // Update notes editor
+                this.ui.notes.refreshWidth();
+            }
+        };
 
-        function showNormalColors() {
-            $('body').css('background', 'url(../img/bkg3.jpg) no-repeat center center fixed');
-            $('#main').css('background-color', 'white');
-            localStorage.removeItem(COLOR_STORAGE_KEY);
-            $darkColorSchemeOpt.prop('checked', false);
-        }
+        // -----------------------------------------------------------------
+        // Find and display questions
+        // -----------------------------------------------------------------
+        var Search = function(data, input, dialog) {
+            this.data = data;
+            this.$input = $(input);
+            this.$dialog = $(dialog);
 
-        function showDarkColors() {
-            $('body').css('background', 'rgb(50, 50, 50)');
-            $('#main').css('background-color', 'rgb(230, 230, 230)');
-            localStorage.setItem(COLOR_STORAGE_KEY, 'dark');
-            $darkColorSchemeOpt.prop('checked', true);
-        }
-
-        function executeSearch() {
-            var text = $search.val();
+            this.$input.bind('keypress', 'return', this.execute.bind(this));
+        };
+        Search.prototype.execute = function() {
+            var text = this.$input.val();
             var p = new RegExp(text, 'i');
             var matches = [];
-            $.each(data, function(i, section) {
+            $.each(this.data, function(i, section) {
                 $.each(section.questions, function(j, details) {
                     if (p.test(details.question) || p.test(details.answer)) {
                         matches.push({sectionNum: i+1, section: section.section, questionNum: j+1, question: details.question});
@@ -341,474 +754,19 @@
                     return '<dt><a href="questions.html?section=' + m.sectionNum + '&q=' + m.questionNum + '">' + m.section + ' #' + (m.questionNum) + '</a></dt>' +
                         '<dd>' + $.trim(text.substring(0, 200)) + '...</dd><br/>';
                 });
-                console.log(contents.join('\n'))
-                $searchResults.find('.modal-body').html('<dl>' + contents.join('\n') + '</dl>');
-                $searchResults.modal();
+                this.$dialog.find('.modal-body').html('<dl>' + contents.join('\n') + '</dl>');
+                this.$dialog.modal();
             }
+        };
+
+        function load() {
+            ui = new UI(data, getUrlVars());
+            ui.showQuestion();
         }
 
-        function toggleNotes() {
-            if ($showNotesOpt.is(':checked')) {
-                hideNotes();
-            } else {
-                showNotes();
-            }
-        }
-
-        function handleNotesOpt() {
-            if ($(this).is(':checked')) {
-                showNotes();
-            } else {
-                hideNotes();
-            }
-        }
-
-        function showNotes() {
-            $answerText.removeClass('col-md-12').addClass('col-md-9');
-            $('#show-notes').hide();
-            $notesPanel.show();
-            $notes.show();
-            updateNotesSetting(true);
-        }
-
-        function hideNotes() {
-            $answerText.removeClass('col-md-9').addClass('col-md-12');
-            $('#show-notes').show();
-            $notesPanel.hide();
-            $notes.hide();
-            updateNotesSetting(false);
-        }
-
-        function updateNotesSetting(visible) {
-            var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            notes['visible'] = visible;
-            localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
-            
-            $showNotesOpt.prop('checked', visible);
-        }
-
-        function saveNotes() {
-            var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            var qkey = 'q,' + getQKey();
-            var note = $notesEditor.html();
-            if (notes[qkey] != note) {
-                notes[qkey] = $.trim(note);
-                localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
-            }
-        }
-
-        function restoreNotes() {
-            var notes = JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || '{}');
-            var qkey = 'q,' + getQKey();
-            var note = notes[qkey] || '';
-            $notesEditor.html(note);
-        }
-
-        function handleNotesKeydown(e) {
-            if (e.keyCode == 27) { $(this).blur(); }
-        }
-
-        function toggleAnswer() {
-            if (isTestMode()) { return; }
-            $answer.toggle();
-            if ($answer.is(':visible')) {
-                $('html,body').animate({scrollTop: $answer.offset().top - 250}, 'fast');
-                
-                // Update notes editor
-                $notes.width($notes.parent().width());
-            }
-        }
-
-        function deferSaveHighlights(highlights, range) {
-            // Wait for current call stack to clear before calling saveHighlights(). This allows for
-            // highlights to be applied / removed by the JQuery TextHighlighter plugin after it triggers
-            // the respective event.
-            setTimeout(this.saveHighlights.bind(this, highlights, range), 1);
-            return true;
-        }
-
-        function saveHighlights(highlights, range) {
-            // Retrieve currently stored highlights
-            var qkey = 'q,' + getQKey();
-            var akey = 'a,' + getQKey();
-            var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
-
-            // Serialize currently highlighted text
-            var qhilites = this.$qtext.getHighlighter().serializeHighlights();
-            var ahilites = this.$answerText.getHighlighter().serializeHighlights();
-            
-            // Determine if anything has been updated, and store new highlights
-            var qupdated = (hilites[qkey] != qhilites);
-            var aupdated = (hilites[akey] != ahilites);
-            hilites[qkey] = qhilites;
-            hilites[akey] = ahilites;
-
-            // Save highlights
-            if (qupdated || aupdated) { localStorage.setItem(HILITES_STORAGE_KEY, JSON.stringify(hilites)); }
-        }
-
-        function readHighlights() {
-            var qkey = 'q,' + getQKey();
-            var akey = 'a,' + getQKey();
-            var hilites = JSON.parse(localStorage.getItem(HILITES_STORAGE_KEY) || '{}');
-            if (!isTestMode() && hilites[qkey]) { $qtext.getHighlighter().deserializeHighlights(hilites[qkey]); }
-            if (hilites[akey]) { $answerText.getHighlighter().deserializeHighlights(hilites[akey]); }
-        }
-
-        function numQuestions() {
-            if (isTestMode()) {
-                var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
-                return testlist[testId].questions.length;
-            } else {
-                return data[sectionNum].questions.length;
-            }
-        }
-
-        function prevQuestion() {
-            if (questionNum > 0) {
-                showQuestion(data, sectionNum, --questionNum);
-            }
-        }
-
-        function nextQuestion() {
-            if (questionNum < numQuestions()-1 ) {
-                showQuestion(data, sectionNum, ++questionNum);
-            }
-        }
-
-        function prevSection() {
-            if (sectionNum > 0 && !isTestMode()) {
-                questionNum = 0;
-                showQuestion(data, --sectionNum, questionNum);
-            }
-        }
-
-        function nextSection() {
-            if (sectionNum < data.length-1 && !isTestMode()) {
-                questionNum = 0;
-                showQuestion(data, ++sectionNum, questionNum);
-            }
-        }
-
-        function selectOption(opt) {
-            $($('input[type=radio]')[opt]).prop('checked', true);
-            var test = getTest();
-            if (test && !reviewMode) {
-                test.answers = test.answers || [];
-                test.answers[questionNum] = opt+1;
-                saveTest(test);
-            }
-        }
-
-        function selectCorrect(user, correct) {
-            var opts = $('input[type=radio]');
-            if (correct && correct <= opts.length) {
-                $('<span><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
-                $(opts[correct-1]).prev().css('margin-left', '-20px')
-            }
-            if (user && user != correct) {
-                $('<span><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
-                $(opts[user-1]).prev().css('margin-left', '-20px')
-            }
-        }
-
-        function showMastery() {
-            $('#mastery').show();
-        }
-
-        function hideMastery() {
-            $('#mastery').hide();
-        }
-
-        function clearMastery() {
-            localStorage.removeItem(MASTERY_STORAGE_KEY);
-            selectMastery(0);
-        }
-
-        function readMastery() {
-            var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
-            var qkey = getQKey();
-            if (mastery[qkey]) {
-                selectMastery(mastery[qkey]);
-            } else {
-                selectMastery(0);
-            }
-        }
-
-        function selectMastery(n) {
-            if (isTestMode()) { return; }
-
-            $('#mastery button').removeClass('active');
-            $('#mastery button').removeClass('btn-info');
-            // $('#mastery button').css('background-color', '');
-            if (n > 0) {
-                $('#mastery-' + n).addClass('active');
-                $('#mastery-' + n).addClass('btn-info');
-                // $('#mastery-' + n).css('background-color', MASTERY_COLORS[n]);
-            }
-
-            var qkey = getQKey();
-            var mastery = JSON.parse(localStorage.getItem(MASTERY_STORAGE_KEY) || '{}')
-
-            if (n > 0) {
-                mastery[qkey] = n;
-            } else {
-                delete mastery[qkey];
-            }
-
-            localStorage.setItem(MASTERY_STORAGE_KEY, JSON.stringify(mastery));
-        }
-
-        function isTestMode() {
-            return !isNaN(testId);
-        }
-
-        function getTest() {
-            if (!isTestMode()) { return null; }
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
-            return testlist[testId]
-        }
-
-        function saveTest(test) {
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
-            testlist[testId] = test;
-            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
-        }
-
-        function getQKey() {
-            if (isTestMode()) {
-                return getTest().questions[questionNum];
-            } else {
-                return sectionNum + ',' + questionNum
-            }
-        }
-
-        function getCorrect(question) {
-            if (question.correct) {
-                return question.correct;
-            } else {
-                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
-                var matches = question.answer.match(pattern);
-                if (matches) {
-                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
-                }
-            }
-        }
-
-        function initBreadcrumb(paths) {
-            $breadcrumb.find('li').remove();
-            $breadcrumb.append('<li><a href="index.html">Capstone</a></li>');
-            for (var i in paths) {
-                var path = paths[i];
-                if (typeof(path) === 'string') {
-                    $breadcrumb.append('<li class="active"><span href="#">'+path+'</span></li>');
-                } else {
-                    $breadcrumb.append('<li><a href="'+path.href+'">'+path.text+'</a></li>');
-                }
-            }
-        }
-
-        function refreshTimer() {
-            // Stop any previous timer
-            clearTimeout(elapsedTimeout);
-
-            // Update timer as (elapsed time at page load + time since load)
-            var elapsedSinceStartup = new Date() - startupTime,
-                elapsedMs = (startupElapsedMs || 0) + elapsedSinceStartup,
-                elapsedMin = elapsedMs / 1000 / 60,
-                h = Math.floor(elapsedMin / 60),
-                mm = Math.floor(elapsedMin) % 60,
-                ss = Math.floor(elapsedMs / 1000) % 60;
-
-            mm = (mm<10 ? '0' : '') + mm;
-            ss = (ss<10 ? '0' : '') + ss;
-            $time.text(h + ':' + mm); // + ':' + ss);
-            elapsedTimeout = setTimeout(refreshTimer, 1000);
-
-            // Store elapsed time
-            var test = getTest();
-            test.elapsedMs = elapsedMs;
-            saveTest(test);
-
-            // Make sure timer is shown
-            $('#timer').removeClass('hidden');
-        }
-
-        function initQuestionNumber(qnum, numqs) {
-            // Show/hide prev/next question arrows
-            if (qnum == 0) {
-                $('.prev').hide();
-                $('.next').show();
-            } else if (qnum < numqs-1) {
-                $('.prev').show();
-                $('.next').show();
-            } else {
-                $('.prev').show();
-                $('.next').hide();
-            }
-
-            // "Question x of y" and actual question text
-            $('#qnum').text(qnum+1 + ' of ' + numqs)
-        }
-
-        function initQuestionText(questionText) {
-            // Add radio button before each choice if we can. Don't add radio
-            // button for matching questions (those with choices A-Z. and 1-9.) or multiple part questions
-            // (those with more than one A. answer), which mess up the A-Z shortcut keys.
-            if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
-                    (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
-                questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input type="radio" name="opt"></input> &nbsp;&nbsp; $1');
-            }
-            $qtext.html(questionText);
-        }
-
-        function initMedia() {
-            $.fancybox.close(true);
-            $('.fancybox').fancybox();
-        }
-
-        function showQuestion(data, sectionNum, qnum) {
-            if (isTestMode()) {
-                showTestQuestion(data, qnum);
-            } else {
-                showTutorialQuestion(data, sectionNum, qnum);
-            }
-        }
-
-        function showTestQuestion(data, testQIndex) {
-            var test = getTest(),
-                testQId = test.questions[testQIndex],
-                id_parts = testQId.split(','),
-                sectionNum = parseInt(id_parts[0]),
-                section = data[sectionNum],
-                qnum = parseInt(id_parts[1]);
-
-            if (!test) { return; }
-            test.lastQuestion = testQIndex+1;
-            saveTest(test);
-
-            // Breadcrumb text
-            initBreadcrumb([
-                {href: 'testindex.html', text: 'Practice Tests'},
-                'Test - Created ' + test.date])
-
-            if (!reviewMode) { refreshTimer(); }
-
-            // Show/hide prev/next question arrows
-            initQuestionNumber(testQIndex, test.questions.length);
-
-            // Question text and choices
-            initQuestionText(section.questions[qnum].question);
-
-            // Select users answer
-            var answer = test.answers && test.answers[testQIndex];
-            if (answer) { selectOption(answer-1); }
-
-            // Explanation
-            if (reviewMode) {
-                var correct = getCorrect(section.questions[qnum]);
-                selectCorrect(answer, correct);
-                $source.html('<p><small><a href="questions.html?section=' + (sectionNum+1) + '&q=' + (qnum+1) + '">' + section.section + ' #' + (qnum+1) + '</a></small></p>')
-                $answerText.html(section.questions[qnum].answer);
-                $answer.show();
-                $submit.hide();
-
-                // Restore highlights
-                readHighlights();
-            } else {
-                $answer.hide();
-                $submit.show();
-            }
-
-            // Enable pop up media
-            initMedia();
-
-            // Restore notes (not highlights)
-            restoreNotes();
-
-            // Hide extraneous sections
-            $showAnswer.hide();
-            hideMastery();
-
-            // Update URL
-            if (window.history) {
-                var urlVars = getUrlVars();
-                if (urlVars.q != '' + (testQIndex+1)) {
-                    window.history.pushState('', '', '?testid=' + testId + '&q=' + (testQIndex+1) + (reviewMode ? '&review=1' : ''));
-                    // Also post page view to google analytics
-                    if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }
-                }
-            }
-        }
-
-        function showTutorialQuestion(data, sectionNum, qnum) {
-            var section = data[sectionNum];
-            var i = 0;
-
-            // Breadcrumb text
-            initBreadcrumb([section.section]);
-
-            // Show/hide prev/next question arrows
-            initQuestionNumber(qnum, section.questions.length);
-
-            // Question text and choices.
-            var questionText = section.questions[qnum].question;
-            initQuestionText(questionText);
-
-            // Answers with explanations and tutorial section
-            var answerText = section.questions[qnum].answer;
-            $answerText.html(answerText);
-            if (!reviewMode) {
-                $answer.hide();
-            }
-
-            // Show "Show Answer" button and hide submit test button
-            $showAnswer.show();
-            $submit.hide();
-
-            // Update mastery selector
-            showMastery();
-            readMastery();
-
-            // Restore notes & highlights
-            restoreNotes();
-            readHighlights();
-
-            // Enable pop up media
-            initMedia();
-
-            // Update URL
-            if (window.history) {
-                var urlVars = getUrlVars();
-                if ((urlVars.section != '' + (sectionNum+1)) || urlVars.q != '' + (qnum+1)) {
-                    window.history.pushState('', '', '?section=' + (sectionNum+1) + '&q=' + (qnum+1) + (reviewMode ? '&review=1' : ''));
-
-                    // Also post page view to google analytics
-                    if (typeof ga !== 'undefined') { ga('send', 'pageview', window.location.pathname + window.location.search); }
-                }
-            }
-        }
-
-        // Parse URL query params if provided
-        var urlVars = getUrlVars();
-        testId = parseInt(urlVars.testid);
-        reviewMode = !!urlVars.review;
-        if (urlVars.q !== undefined) {
-            try {
-                sectionNum = parseInt(urlVars.section)-1;
-                questionNum = parseInt(urlVars.q)-1;
-            } catch (err) {
-                console.log('Could not parse query params: ' + urlVars);
-            }
-        }
-
-        $(document).ready(function() {
-            // Set up keyboard shortcuts and button actions
-            initUI();
-
-            // Show current question
-            showQuestion(data, sectionNum, questionNum);
-        });
+        // Load when document ready and when going back/forward with popstate
+        $(document).ready(load);
+        window.onpopstate = function() { return isOnLoadPopState() || load(); }
     -->
     </script>
     <!-- Google analytics -->

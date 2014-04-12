@@ -96,62 +96,77 @@
         </div>
     </div>
 
+    <!-- Templates -->
+    <script type="text/html" id="subject_tpl">
+        <a href="#" class="list-group-item">
+            <span class="badge">{{numQuestions}}</span>
+            <span id="subject">{{subject}}</span>
+        </a>
+    </script>
+    <script type="text/html" id="test_tpl">
+        <a href="questions.html?q={{test.lastQuestion || 1}}&testid={{testId}}" class="list-group-item" id="{{id}}">
+            <b>{{test.date}}</b><br/>
+            <span>{{test.numquestions}} questions | {{formatTime(test.elapsedMs, true)}} elapsed</span><br/>
+            <span>Subjects: {{test.subjects.join('; ')}}</span>
+        </a>
+    </script>
+    <script type="text/html" id="test_btns_tpl">
+        <div class="btn-group pull-right">
+            <a id="review" class="btn btn-sm btn-default" href="questions.html?review=1&q=1&testid={{testId}}">Review</a>
+            <a id="grade" type="button" class="btn btn-sm btn-default" href="testgrade.html?testid={{testId}}">Summary</a>
+            <a id="delete" type="button" class="btn btn-sm btn-default">Delete</a>
+        </div>
+    </script>
+
+    <!-- Scripts -->
     <script src="static/thirdparty/jquery.min.js"></script>
     <script src="static/thirdparty/jquery.hotkeys.js"></script>
     <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/util.js"></script>
     <script src="static/js/data.js"></script>
     <script type="text/javascript">
     <!--
-        var TESTLIST_STORAGE_KEY = 'tutorme.capstone.testlist';
-        var testbtns = '<div class="btn-group pull-right">' + 
-                        '<a id="review" class="btn btn-sm btn-default">Review</a>'+
-                        '<a id="grade" type="button" class="btn btn-sm btn-default">Summary</a>'+
-                        '<a id="delete" type="button" class="btn btn-sm btn-default">Delete</a>'+
-                        '</div>';
+        var storage = new Storage();
 
         function initUI(data) {
             $subjects = $('#subjects');
-            for (var i in data) {
-                var a = $('<a href="#" class="list-group-item"></a>');
-                a.append($('<span class="badge">'+data[i].questions.length+'</span>'));
-                a.append($('<span id="subject">'+data[i].section+'<span>'));
-                $subjects.append(a);
-            }
-
             $notests = $('#notests');            
             $existingtests = $('#existingtests');
+
+            // Initialize list of subjects
+            var subjectTpl = tmpl('subject_tpl');
+            for (var i in data) {
+                $subjects.append(subjectTpl({
+                    numQuestions: data[i].questions.length,
+                    subject: data[i].section
+                }));
+            }
+
+            // Initialize list of existing test
             refreshTestList();
 
+            // Event handlers
             $('#selectall').click(function() { $('#subjects > .list-group-item').addClass('active'); })
             $('#selectnone').click(function() { $('#subjects > .list-group-item').removeClass('active'); })
             $('#subjects > .list-group-item').click(function() { $(this).toggleClass('active'); return false; });
             $('#create').click(createTest.bind(null, data));
 
+            // Shortcut keys
             $(document).bind('keypress', 'shift+return', function() { window.location.href = "index.html" });
         }
 
         function numTests(testlist) {
-            var num = 0;
-            for (var i in testlist) { 
-                if (!isNaN(i)) { num++; }
-            }
-            return num;
-        }
-
-        function getElapsed(ms) {
-            ms = ms || 0;
-            var elapsedMin = ms / 1000 / 60,
-                h = Math.floor(elapsedMin / 60),
-                mm = Math.floor(elapsedMin) % 60,
-                ss = Math.floor(ms / 1000) % 60;
-
-            mm = (mm<10 ? '0' : '') + mm;
-            ss = (ss<10 ? '0' : '') + ss;
-            return (h + ':' + mm + ':' + ss);
+            return Object.keys(testlist)
+                        .reduce(function(acc, key) {
+                            return acc + !isNaN(key)
+                        }, 0);
         }
 
         function refreshTestList() {
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
+            var testlist = storage.getTestList();
+                testTpl = tmpl('test_tpl'),
+                testBtnsTpl = tmpl('test_btns_tpl');
+
             if (numTests(testlist) == 0) {
                 $notests.show();
                 $existingtests.hide();
@@ -162,20 +177,15 @@
                 for (i in testlist) (function(i) {
                     // Ignore non-numeric entries (e.g. nextId), which are not tests
                     if (isNaN(i)) { return; }
-                    var t = testlist[i],
-                        id = 't' + i,
-                        el = $('<a href="questions.html?q=' + (t.lastQuestion || 1) + '&testid='+i+'" class="list-group-item" id="'+id+'"/>');
+                    var id = 't' + i,
+                        test = testlist[i],
+                        $el = $(testTpl({
+                            id: id,
+                            testId: i,
+                            test: test
+                        }));
 
-                    el.append($(testbtns))
-                        .append($('<b>'+t.date+'</b><br/>'))
-                        .append($('<span>'+t.numquestions+' questions | '+getElapsed(t.elapsedMs)+' elapsed </span><br/>'))
-                        .append($('<span>Subjects: '+t.subjects.join('; ')+'</span>'));
-                    $existingtests.append(el);
-
-                    var $el = $('#' + id);
-
-                    $el.find('#review').attr('href', 'questions.html?review=1&q=1&testid=' + i);
-                    $el.find('#grade').attr('href', 'testgrade.html?testid=' + i);
+                    $el.prepend(testBtnsTpl({testId: i}));
                     $el.find('#delete').hover(function() {
                         $(this).addClass('btn-danger');
                     }, function() {
@@ -186,6 +196,8 @@
                     }).click(function() { 
                         return false;
                     }).tooltip({title: 'Double click to delete (cannot be recovered)', placement: 'bottom', trigger: 'click'});
+
+                    $existingtests.append($el);
                 })(i);
             }
         }
@@ -193,7 +205,7 @@
             var subjects = $('.list-group-item.active > span#subject').map(function() { return $(this).text(); }).get(),
                 numquestions = parseInt($('#numquestions').val());
             
-            if (isNaN(numquestions)) {
+            if (isNaN(numquestions) || numquestions <= 0) {
                 return alert('Invalid number of questions: ' + $('#numquestions').val());
             }
 
@@ -209,33 +221,29 @@
             }
 
             // Store test by ID and increment next unique ID
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}');
+            var testlist = storage.getTestList();
             testlist = Array.isArray(testlist) ? {} : testlist;
             var testId = testlist.nextId || 1;
             testlist[testId] = test;
             testlist.nextId = testId+1;
-            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
+            storage.saveTestList(testlist);
             refreshTestList();
 
             // Start test 
             window.location.href = 'questions.html?q=1&testid=' + (testId);
         }
         function deleteTest(index) {
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}')
+            var testlist = storage.getTestList();
             testlist = Array.isArray(testlist) ? {} : testlist;
             delete testlist[index]
-            localStorage.setItem(TESTLIST_STORAGE_KEY, JSON.stringify(testlist));
+            storage.saveTestList(testlist);
             refreshTestList();
         }
         function questionId(s, q) {
             return s + ',' + q;
         }
-        function questionFromId(data, id) {
-            var parts = id.split(',');
-            return data[parseInt(parts[0])].questions[parseInt(parts[1])]
-        }
         function getUsedQuestionIds() {
-            var testlist = JSON.parse(localStorage.getItem(TESTLIST_STORAGE_KEY) || '{}'),
+            var testlist = storage.getTestList(),
                 ids = [];
             for (var i in testlist) {
                 ids = ids.concat(testlist[i].questions)
@@ -251,17 +259,6 @@
             }
             return false;
         }
-        function getCorrect(question) {
-            if (question.correct) {
-                return question.correct;
-            } else {
-                var pattern = /([A-Z])\s+is\s+correct|answer\s+is\s+([A-Z])/i;
-                var matches = question.answer.match(pattern);
-                if (matches) {
-                    return (matches[1] || matches[2]).charCodeAt(0) - 64;
-                }
-            }
-        }
         function filterValidQuestionIds(data, ids) {
             if ($('#newonly').is(':checked')) {
                 var used = getUsedQuestionIds();
@@ -270,7 +267,7 @@
             // Only use questions where we know the correct answer and it can be answered
             ids = ids.filter(function(id) { 
                 var question = questionFromId(data, id);
-                return getCorrect(question) && answerable(question); 
+                return correctAnswerFromQuestion(question) && answerable(question); 
             });
             return ids;
         }
@@ -293,9 +290,7 @@
             // Sequences are questions that need to be presented in a specific order.
             // Only check for sequence questions in the first <limit> ids
             while (i < Math.min(limit, ids.length)) {
-                var id = ids[i],
-                    question = questionFromId(data, ids[i]);
-
+                var question = questionFromId(data, ids[i]);
                 if (question.sequence) {
                     // Get IDs for every question in the sequence in order
                     var seqIds = questionIdsInSequence(data, question.sequence)
@@ -333,15 +328,6 @@
             shuffleArray(ids);
             ids = collectSequences(data, ids, num);
             return ids.splice(0, num);
-        }
-        function shuffleArray(array) {
-            for (var i = array.length - 1; i > 0; i--) {
-                var j = Math.floor(Math.random() * (i + 1));
-                var temp = array[i];
-                array[i] = array[j];
-                array[j] = temp;
-            }
-            return array;
         }
         
         // Set up keyboard shortcuts and button actions

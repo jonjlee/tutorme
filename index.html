@@ -46,61 +46,77 @@
 		</div>
 	</div>
 
+	<!-- Templates -->
+	<script type="text/html" id="section_header_tpl">
+		<div class="row">
+			<div class="col-xs-12">
+				<h4>{{section}}</h4>
+			</div>
+		</div>
+	</script>
+	<script type="text/html" id="section_list_tpl">
+		<div class="row">
+			<div class="col-xs-12">
+				<span class="btn-group">{{questions}}</span>
+			</div>
+		</div>
+	</script>
+	<script type="text/html" id="question_tpl">
+		<a class="btn btn-default" style="background-color:{{color}};" id="s{{sectionNum}}q{{questionNum}}" href="questions.html?section={{sectionNum}}&q={{questionNum}}">{{questionNum}}</a>
+	</script>
+	<script type="text/html" id="test_button_tpl">
+		<a class="btn btn-default" href="questions.html?q={{questionNum}}&testid={{id}}">{{numQuestions}} Qs - {{date}}</a>
+	</script>
+
+	<!-- Scripts -->
     <script src="static/thirdparty/jquery.min.js"></script>
 	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
 	<script src="static/js/data.js"></script>
+	<script src="static/js/util.js"></script>
 	<script type="text/javascript">
 	<!--
-		var localStorageKey = 'tutorme.capstone.mastery';
-        var testlistStorageKey = 'tutorme.capstone.testlist';
-		var COLORS = [null, '#CA5353', '#DA8143', '#CBDA2E', '#BCDC3B', '#81D43A'];
-
 		function initUI() {
-			var $subjects = $('#subjects');
-			var $tests = $('#tests');
-			var mastery = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
-            var testlist = JSON.parse(localStorage.getItem(testlistStorageKey) || '[]')
-			var i, j;
+			var $subjects = $('#subjects'),
+				$tests = $('#tests'),
+				sectionHeaderTpl = tmpl('section_header_tpl'),
+				sectionListTpl = tmpl('section_list_tpl'),
+				questionTpl = tmpl('question_tpl'),
+				testBtnTpl = tmpl('test_button_tpl'),
+				storage = new Storage(),
+				mastery = storage.getMastery(),
+            	testlist = storage.getTestList();
 
-			for (i in data) {
+			// Add subject sections and buttons for each question
+			for (var i in data) {
 				i = parseInt(i);
-				$subjects.append('<div class="row"><div class="col-xs-12"><h4>' + (i+1) + '. ' + data[i].section + '</h4></div></div>')
+				$subjects.append(sectionHeaderTpl({section: (i+1) + '. ' + data[i].section}));
 
-				var questions = '<div class="row"><div class="col-xs-12"><span class="btn-group">';
-				for (j in data[i].questions) {
+				var questions = [];
+				for (var j in data[i].questions) {
 					j = parseInt(j)
 					var qkey = i + ',' + j;
-					var id = 's' + i + '-q' + j;
-					if (mastery[qkey]) {
-						bkgAttr = 'style="background-color:' + COLORS[mastery[qkey]] + ';"';
-					} else {
-						bkgAttr = '';
-					}
-
-					var href = 'questions.html?section=' + (i+1) + '&q=' + (j+1);
-					questions += '<a class="btn btn-default" id="' + id + '" ' + bkgAttr + ' href="' + href + '">' + (j+1) + '</a>';
-		
+					questions.push(questionTpl({
+						sectionNum: i+1,
+						questionNum: j+1,
+						color: mastery[qkey] && MASTERY_COLORS[mastery[qkey]] || ''
+					}));		
 				}
-				questions += '</span></div></div>';
-				$subjects.append(questions);
+				$subjects.append(sectionListTpl({questions: questions.join('')}));
 			}
 
+			// Add buttons to practice test section
 			for (i in testlist) {
 				if (isNaN(i)) { continue; }
-				$tests.append($('<a class="btn btn-default" href="questions.html?q=' + (testlist[i].lastQuestion || 1) + '&testid='+i+'">'+testlist[i].numquestions+' Qs - '+testlist[i].date+'</a>'));
+				$tests.append(testBtnTpl({
+					id: i,
+					date: testlist[i].date,
+					numQuestions: testlist[i].numquestions,
+					questionNum: testlist[i].lastQuestion || 1,
+				}));
 			}
 		}
 
-		function numQuestions() {
-			var n = 0;
-			for (var i in data) {
-				n += data[i].questions.length;
-			}
-			return n;
-		}
-
-		// Set up keyboard shortcuts and button actions
-		initUI();
+		$(document).ready(initUI);
 	-->
 	</script>
 	<!-- Google analytics -->
