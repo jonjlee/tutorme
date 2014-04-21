@@ -385,14 +385,14 @@
             this.$main.css('background-color', 'white');
             this.$opt.prop('checked', false);
             this.isDark = false;
-            STORAGE.clearColor();
+            this.storage.clearColor();
         };
         ColorScheme.prototype.dark = function () {
             this.$body.css('background', 'rgb(50, 50, 50)');
             this.$main.css('background-color', 'rgb(230, 230, 230)');
             this.$opt.prop('checked', true);
             this.isDark = true;
-            STORAGE.saveColor('dark');
+            this.storage.saveColor('dark');
         };
         ColorScheme.prototype.handleOptChange = function() {
             return (this.$opt.is(':checked')) && this.dark() || this.normal();
