@@ -549,13 +549,16 @@
             this.$editor.keydown(this.handleKeydown.bind(this));
             this.$affixedContainer.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
 
+            // Shortcut keys
+            $(document).bind('keypress', 'n', this.toggle.bind(this));
+
             // Hide / show link and config option handlers
             this.$showLink.click(this.show.bind(this));
             this.$hideLink.click(this.hide.bind(this));
             this.$opt.change(this.handleOptChange.bind(this));
         };
         Notes.prototype.toggle = function() {
-            return this.$opt.is(':checked') && hideNotes() || showNotes();
+            return this.$opt.is(':checked') ? this.hide() : this.show();
         };
         Notes.prototype.show = function() {
             this.$answerText.removeClass('col-md-12').addClass('col-md-9');
@@ -565,7 +568,7 @@
             this.updateOpt(true);
         };
         Notes.prototype.hide = function() {
-            $answerText.removeClass('col-md-9').addClass('col-md-12');
+            this.$answerText.removeClass('col-md-9').addClass('col-md-12');
             this.$showLink.show();
             this.$panel.hide();
             this.$affixedContainer.hide();
@@ -591,7 +594,7 @@
             if (e.keyCode == 27) { this.$editor.blur(); }
         };
         Notes.prototype.handleOptChange = function() {
-            return this.$opt.is(':checked') && showNotes() || hideNotes();
+            return this.$opt.is(':checked') ? this.show() : this.hide();
         };
         Notes.prototype.refreshWidth = function() {
             this.$affixedContainer.width(this.$affixedContainer.parent().width());
