@@ -412,7 +412,7 @@
 
                 hlDescriptors.push([
                     wrapper,
-                    $(highlight).text(),
+                    '', //$(highlight).text(),
                     hlPath.join(':'),
                     offset,
                     length
