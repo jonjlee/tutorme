@@ -13,6 +13,7 @@ var isOnLoadPopState = function() { return !PUSHED_STATE && location.href == INI
 STORAGE_KEYS_BASE = 'tutorme.capstone';
 STORAGE_KEYS = {
     base: STORAGE_KEYS_BASE,
+    expanded: STORAGE_KEYS_BASE + '.expanded',
     mastery: STORAGE_KEYS_BASE + '.mastery',
     notes: STORAGE_KEYS_BASE + '.notes',
     color: STORAGE_KEYS_BASE + '.color',
@@ -31,6 +32,13 @@ var Storage = function(getCurrentKeyFn) {
     this.read = function(key, def) { return JSON.parse(localStorage.getItem(STORAGE_KEYS[key]) || def); };
     this.write = function(key, val) { localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(val)); };
     this.clear = function(key) { localStorage.removeItem(STORAGE_KEYS[key]); };
+    this.print = function() { 
+        for (var i in localStorage) { 
+            if (i.indexOf(STORAGE_KEYS.base) === 0) {
+                console.log(i + ': ' + localStorage.getItem(i));
+            }
+        }
+    }
     
     // --------------------------------------------------------------------------------------------
     // Read write an entire object or a particular key. The first parameter, name, should be a key
@@ -67,6 +75,8 @@ var Storage = function(getCurrentKeyFn) {
     // --------------------------------------------------------------------------------------------
     // Convenience functions for specific data
     // --------------------------------------------------------------------------------------------
+    this.getExpanded         = function(key)         { return this.getObject('expanded', key); };
+    this.saveExpanded        = function(key, val)    { this.saveObject('expanded', key, val); };
     this.getMastery          = function(key)         { return this.getObject('mastery', key); };
     this.getCurrentMastery   = function()            { return this.getMastery(this.currentKey()); };
     this.saveMastery         = function(key, val)    { this.saveObject('mastery', key, val); };
@@ -79,7 +89,7 @@ var Storage = function(getCurrentKeyFn) {
     this.saveCurrentNotes    = function(obj)         { this.saveNotes('q,' + this.currentKey(), obj); };
     this.getColor            = function()            { return localStorage.getItem(STORAGE_KEYS['color']) || ''; };
     this.saveColor           = function(val)         { localStorage.setItem(STORAGE_KEYS['color'], val); };
-    this.clearColor          = function(val)         { STORAGE.clear('color') };
+    this.clearColor          = function(val)         { localStorage.removeItem(STORAGE_KEYS['color']); };
     this.getHilites          = function(key)         { return this.getObject('hilites', key); };
     this.getCurrentHilites   = function(prefix)      { return this.getHilites(prefix + ',' + this.currentKey()); };
     this.saveHilites         = function(key, obj)    { this.saveObject('hilites', key, obj); };
@@ -116,7 +126,7 @@ function shuffleArray(array) {
 function numQuestions() {
     return data.reduce(function(acc, section) {
         return acc + section.questions.length;
-    });
+    }, 0);
 }
 
 // Given an id in the format [q,]section #,question #, return the actual question object

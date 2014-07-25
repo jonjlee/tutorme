@@ -22,14 +22,18 @@ div#main {
 	border-right: 5px solid black;
 	border-bottom: 5px solid black;
 }
-div#notes.affix {
-	top: 10px;
-}
-div#notes p {
-	margin-bottom: 0px;
+div#notes-editor {
+	margin: 3px 10px;
 }
 div#qchoices {
 	padding-left: 20px;
+}
+input.qchoice {
+    margin-left: 22px;
+}
+span.qchoiceflag {
+    width: 22px;
+    margin-right: -22px;
 }
 div.editor {
 	width: 100%;

@@ -1,3 +1,4 @@
+
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,120 +14,164 @@
     <![endif]-->
 </head>
 <body>
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12 col-md-8 col-md-offset-2" id="main">
-				<div class="well" style="text-align:center">
-					<h2>Clinical Transitions Questions</h2>
-				</div>
+    <div class="container">
+        <div class="row">
+            <div class="col-xs-12 col-md-8 col-md-offset-2" id="main">
+                <div class="well" style="text-align:center">
+                    <h2>Clinical Transitions Questions</h2>
+                </div>
 
-				<div class="row">
-					<div class="col-xs-12">
-						<div class="alert alert-info">
-							<p><span class="label label-success">New!</span> <b><a href="testindex.html">Practice tests</a></b>. Create an untimed practice test in the Practice Tests section.</p>
-							<p><span class="label label-warning">Warning</span> <b>Do not clear your browser's website data or cache</b>. If you highlight or take notes, that's where all your data is stored!</p>
-							<p>Concerns or suggestions? Take a moment to <a href="mailto:jonathan-lee@ouhsc.edu?subject='Capstone tutorials issue'">email me.</a></p>
-						</div>
-					</div>
-				</div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <div class="alert alert-info">
+                            <p><span class="label label-success">New!</span> <b><a href="testindex.html">Practice tests</a></b>. Create an untimed practice test in the Practice Tests section.</p>
+                            <p><span class="label label-warning">Warning</span> <b>Do not clear your browser's website data or cache</b>. If you highlight or take notes, that's where all your data is stored!</p>
+                            <p>Concerns or suggestions? Take a moment to <a href="mailto:jonathan-lee@ouhsc.edu?subject='Capstone tutorials issue'">email me.</a></p>
+                        </div>
+                    </div>
+                </div>
 
-				<div class="row">
-					<div class="col-xs-12">
-						<h4>Practice Tests</h4>
-						<span class="btn-group" id="tests">
-							<a class="btn btn-default" href="testindex.html">Go to Practice Tests</a>
-						</span>
-					</div>
-				</div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <h4>Practice Tests</h4>
+                        <span class="btn-group" id="tests">
+                            <a class="btn btn-default" href="testindex.html">Go to Practice Tests</a>
+                        </span>
+                    </div>
+                </div>
 
-				<div class="row">
-					<div class="col-xs-12" id="subjects"></div>
-				</div>
-			</div>
-		</div>
-	</div>
+                <div class="row">&nbsp;</div>
+                <div class="row">
+                    <div class="col-xs-12">
+                        <div class="panel-group" id="subjects"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-	<!-- Templates -->
-	<script type="text/html" id="section_header_tpl">
-		<div class="row">
-			<div class="col-xs-12">
-				<h4>{{section}}</h4>
-			</div>
-		</div>
-	</script>
-	<script type="text/html" id="section_list_tpl">
-		<div class="row">
-			<div class="col-xs-12">
-				<span class="btn-group">{{questions}}</span>
-			</div>
-		</div>
-	</script>
-	<script type="text/html" id="question_tpl">
-		<a class="btn btn-default" style="background-color:{{color}};" id="s{{sectionNum}}q{{questionNum}}" href="questions.html?section={{sectionNum}}&q={{questionNum}}">{{questionNum}}</a>
-	</script>
-	<script type="text/html" id="test_button_tpl">
-		<a class="btn btn-default" href="questions.html?q={{questionNum}}&testid={{id}}">{{numQuestions}} Qs - {{date}}</a>
-	</script>
+    <!-- Templates -->
+    <script type="text/html" id="section_tpl">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a style="color: inherit" data-toggle="collapse" data-parent="#accordion" href="#s{{sectionNum}}">
+                    <h4 class="panel-title">
+                        {{sectionNum}}. {{section}}
+                    </h4>
+                </a>
+            </div>
+            <div id="s{{sectionNum}}" class="panel-collapse collapse">
+                <div class="panel-body">
+                    <span class="btn-group">{{questions}}</span>
+                </div>
+            </div>
+        </div>
+    </script>
+    <script type="text/html" id="question_tpl">
+        <a class="btn btn-default" style="background-color:{{color}};" id="s{{sectionNum}}q{{questionNum}}" href="questions.html?section={{sectionNum}}&q={{questionNum}}">{{questionNum}}</a>
+    </script>
+    <script type="text/html" id="test_button_tpl">
+        <a class="btn btn-default" href="questions.html?q={{questionNum}}&testid={{id}}">{{numQuestions}} Qs - {{date}}</a>
+    </script>
 
-	<!-- Scripts -->
+    <!-- Scripts -->
     <script src="static/thirdparty/jquery.min.js"></script>
-	<script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
-	<script src="static/js/data.js"></script>
-	<script src="static/js/util.js"></script>
-	<script type="text/javascript">
-	<!--
-		function initUI() {
-			var $subjects = $('#subjects'),
-				$tests = $('#tests'),
-				sectionHeaderTpl = tmpl('section_header_tpl'),
-				sectionListTpl = tmpl('section_list_tpl'),
-				questionTpl = tmpl('question_tpl'),
-				testBtnTpl = tmpl('test_button_tpl'),
-				storage = new Storage(),
-				mastery = storage.getMastery(),
-            	testlist = storage.getTestList();
+    <script src="static/thirdparty/bootstrap/js/bootstrap.min.js"></script>
+    <script src="static/js/data.js"></script>
+    <script src="static/js/util.js"></script>
+    <script type="text/javascript">
+    <!--
+        function initUI() {
+            var $subjects = $('#subjects'),
+                $tests = $('#tests'),
+                sectionTpl = tmpl('section_tpl'),
+                questionTpl = tmpl('question_tpl'),
+                testBtnTpl = tmpl('test_button_tpl'),
+                storage = new Storage(),
+                mastery = storage.getMastery(),
+                testlist = storage.getTestList(),
+                expanded = storage.getExpanded();
 
-			// Add subject sections and buttons for each question
-			for (var i in data) {
-				i = parseInt(i);
-				$subjects.append(sectionHeaderTpl({section: (i+1) + '. ' + data[i].section}));
+            // Add subject sections and buttons for each question
+            var section = '', sectionNum = 0;
+            for (var i in data) {
+                i = parseInt(i);
 
-				var questions = [];
-				for (var j in data[i].questions) {
-					j = parseInt(j)
-					var qkey = i + ',' + j;
-					questions.push(questionTpl({
-						sectionNum: i+1,
-						questionNum: j+1,
-						color: mastery[qkey] && MASTERY_COLORS[mastery[qkey]] || ''
-					}));		
-				}
-				$subjects.append(sectionListTpl({questions: questions.join('')}));
-			}
+                var questions = [];
+                for (var j in data[i].questions) {
+                    j = parseInt(j)
+                    var qkey = i + ',' + j;
+                    questions.push(questionTpl({
+                        sectionNum: i+1,
+                        questionNum: j+1,
+                        color: mastery[qkey] && MASTERY_COLORS[mastery[qkey]] || ''
+                    }));
+                }
 
-			// Add buttons to practice test section
-			for (i in testlist) {
-				if (isNaN(i)) { continue; }
-				$tests.append(testBtnTpl({
-					id: i,
-					date: testlist[i].date,
-					numQuestions: testlist[i].numquestions,
-					questionNum: testlist[i].lastQuestion || 1,
-				}));
-			}
-		}
+                $subjects.append(sectionTpl({
+                    sectionNum: i+1,
+                    section: data[i].section + ' <small>(' + questions.length + ')</small>',
+                    questions: questions.join(''),
+                }));
+            }
 
-		$(document).ready(initUI);
-	-->
-	</script>
-	<!-- Google analytics -->
-	<script>
-	  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-	  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-	  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-	  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-	  ga('create', 'UA-48235520-1', 'jonjlee.github.io');
-	  ga('send', 'pageview');
-	</script>
+            // Add buttons to practice test section
+            for (i in testlist) {
+                if (isNaN(i)) { continue; }
+                $tests.append(testBtnTpl({
+                    id: i,
+                    date: testlist[i].date,
+                    numQuestions: testlist[i].numquestions,
+                    questionNum: testlist[i].lastQuestion || 1,
+                }));
+            }
+
+            // Restore open/collapsed state
+            expand(expanded);
+            $('.collapse').on('shown.bs.collapse', saveExpanded.bind(this, storage));
+            $('.collapse').on('hidden.bs.collapse', saveExpanded.bind(this, storage));
+
+            // Initialize colorscheme
+            var color = storage.getColor();
+            console.log(color)
+            if (color == 'dark') {
+                $('body').css('background', 'rgb(50, 50, 50)');
+                $('#main').css('background-color', 'rgb(230, 230, 230)');
+            }
+        }
+
+        function expand(expanded) {
+            for (var i in expanded) {
+                if (expanded[i]) {
+                    $('#' + i).addClass('in');
+                }
+            }
+        }
+
+        function saveExpanded(storage) {
+            var subjects = $('.collapse'),
+                expanded = {};
+            subjects.each(function() {
+                var $el = $(this);
+                if ($el.hasClass('in')) {
+                    expanded[$el.attr('id')] = 1 
+                };
+            });
+            storage.saveExpanded(expanded);
+            console.log(expanded)
+        }
+
+        $(document).ready(initUI);
+    -->
+    </script>
+    <!-- Google analytics -->
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-48235520-1', 'jonjlee.github.io');
+      ga('send', 'pageview');
+    </script>
 </body>
 </html>

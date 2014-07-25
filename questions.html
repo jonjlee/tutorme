@@ -31,12 +31,6 @@
                     <h4>Options:</h4>
                     <div class="checkbox">
                         <label>
-                            <input type="checkbox" id="show-notes-option">
-                            Show notes
-                        </label>
-                    </div>
-                    <div class="checkbox">
-                        <label>
                             <input type="checkbox" id="dark-color-scheme-option"></input>
                             Dark color scheme
                         </label>
@@ -51,8 +45,6 @@
                         <dd>Back to dashboard</dd>
                         <dt>s</dt>
                         <dd>Show / hide answer</dd>
-                        <dt>n</dt>
-                        <dd>Show or hide the Notes box.</dd>
                         <dt>1 - 5</dt>
                         <dd>Select mastery level</dd>
                         <dt>0</dt>
@@ -99,14 +91,14 @@
                             <h3><small>Elapsed Time: <span id="timer"></span></small></h3>
                         </span>
                     </div>
-                    <div class="col-sm-4" id="mastery">
+                    <div class="col-sm-4 mastery" id="">
                         Mastery:
                         <span class="btn-group">
-                            <button id="mastery-1" type="button" class="btn btn-default">1</button>
-                            <button id="mastery-2" type="button" class="btn btn-default">2</button>
-                            <button id="mastery-3" type="button" class="btn btn-default">3</button>
-                            <button id="mastery-4" type="button" class="btn btn-default">4</button>
-                            <button id="mastery-5" type="button" class="btn btn-default">5</button>
+                            <button id="" type="button" class="mastery-1 btn btn-default">1</button>
+                            <button id="" type="button" class="mastery-2 btn btn-default">2</button>
+                            <button id="" type="button" class="mastery-3 btn btn-default">3</button>
+                            <button id="" type="button" class="mastery-4 btn btn-default">4</button>
+                            <button id="" type="button" class="mastery-5 btn btn-default">5</button>
                         </span>
                     </div>
                 </div>
@@ -126,23 +118,34 @@
                 
                 <div class="row" style="display:none" id="answer">
                     <hr/>
-                    <div class="row">
-                        <div class="col-xs-12 text-center" id="show-notes"><small><a class="btn btn-link">Show Notes</a></small></div>
-                        <div class="col-xs-12 text-center text-muted" id="source"></div>
-                        <div class="col-md-12" id="answer-text"></div>
-                        <div class="col-md-3 hidden-sm hidden-xs" id="notes-panel" style="display:none;">
-                            <div class="affix-notes" id="notes" style="display:none;">
-                                <div class="row panel panel-default">
-                                    <div class="panel-heading" style="padding: 3px 10px">
-                                        Notes
-                                        <button class="btn btn-link btn-xs pull-right" id="hide-notes">Hide</button>
-                                    </div>
+                    <div class="row hidden-sm hidden-xs">
+                        <div class="col-md-12">
+                            <div id="notes">
+                                <div class="panel panel-default">
+                                    <div class="panel-heading" style="padding: 3px 10px">Notes</div>
                                     <div id="notes-editor"></div>
                                 </div>
+                            </div>
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-xs-12">
+                        <div class="col-md-12" id="answer-text"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-xs-12 text-center text-muted" id="source"></div>
+                    </div>
+                    <div class="row">
+                        <div class="mastery col-xs-12 col-sm-6 visible-xs visible-sm pager text-center" style="margin-bottom: 0px" id="">
+                            Mastery:
+                            <span class="btn-group">
+                                <button id="" type="button" class="mastery-1 btn btn-default">1</button>
+                                <button id="" type="button" class="mastery-2 btn btn-default">2</button>
+                                <button id="" type="button" class="mastery-3 btn btn-default">3</button>
+                                <button id="" type="button" class="mastery-4 btn btn-default">4</button>
+                                <button id="" type="button" class="mastery-5 btn btn-default">5</button>
+                            </span>
+                        </div>
+                        <div class="col-xs-12 col-sm-6 col-md-12">
                             <ul class="pager">
                                 <li><a class="prev" href="#"><i class="arrow small glyphicon glyphicon-chevron-left"></i> Previous</a></li>
                                 <li><a class="next" href="#">Next <i class="arrow small glyphicon glyphicon-chevron-right"></i></a></li>
@@ -194,21 +197,20 @@
             this.testMode = !isNaN(testId),
             this.reviewMode = !!qparams.review,
             this.colorScheme = new ColorScheme('body', '#main', '#dark-color-scheme-option', this.storage);
-            this.notes = new Notes('#notes-panel', '#notes', '#notes-editor', '#show-notes-option', '#show-notes', '#hide-notes', '#answer-text', this.storage);
+            this.notes = new Notes('#notes', '#notes-editor', this.storage);
             this.navigation = new Navigation('.prev', '.next', '#show', '#answer', '#qnum', sectionNum, questionNum, data.length, this);
             this.search = new Search(data, '#search', '#search-dlg');
 
             if (this.testMode) {
                 // UI components for practice test mode
-                $('#mastery').hide();
+                $('.mastery').hide();
                 $('#show').hide();
                 this.testing = new Testing(data, testId, this.reviewMode, '#timer', '#submit', this.storage);
-            } else {
-                // Mastery feature is only available in tutorial mode
-                this.mastery = new Mastery('#mastery', '#mastery-', this.storage);
             }
             if (!this.testMode || this.reviewMode) {
-                // Highlights are available in tutorial and review modes
+                // Mastery & highlights are available in tutorial and review modes
+                $('.mastery').show();
+                this.mastery = new Mastery('.mastery', '.mastery-', this.storage);
                 this.highlights = new Highlights('#qtext', '#answer-text', this.storage);
             }
 
@@ -255,7 +257,7 @@
             // (those with more than one A. answer), which mess up the A-Z shortcut keys.
             if (!(questionText.match(/1\.\s/) && questionText.match(/2\.\s/)) && 
                     (!questionText.match(/A\.\s/g) || questionText.match(/A\.\s/g).length == 1)) {
-                questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input type="radio" name="opt"></input> &nbsp;&nbsp; $1');
+                questionText = questionText.replace(/([A-M]\.(?:\s|&nbsp;)+<span>|<span>\s*[A-M]\.\s*(?:&nbsp;)+)/g, '<input class="qchoice" type="radio" name="opt"></input> &nbsp;&nbsp; $1');
             }
             this.$qtext.html(questionText);
         };
@@ -314,7 +316,7 @@
 
             // Select user's answer and correct answer
             if (selectedAnswer) { this.selectOption(selectedAnswer-1); }
-            if (correct) { this.testing.selectCorrect(selectedAnswer, correct); }
+            if (correct) { this.selectCorrect(correct, selectedAnswer); }
 
             // Fill in answer with source and always start with it hidden, unless in review mode
             this.$answerText.html(question.answer);
@@ -349,6 +351,27 @@
                 }
             }
         };
+        UI.prototype.selectCorrect = function(correct, user) {
+            if (correct === undefined) {
+                var section = this.data[this.navigation.sectionNum],
+                    question = section.questions[this.navigation.questionNum],
+                    correct = correctAnswerFromQuestion(question)
+            }
+
+            // Remove any previous right/wrong marks
+            this.hideCorrect();
+
+            var opts = $('input[type=radio]');
+            if (correct && correct <= opts.length) {
+                $('<span class="qchoiceflag"><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
+            }
+            if (user && user != correct) {
+                $('<span class="qchoiceflag"><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
+            }
+        };
+        UI.prototype.hideCorrect = function() {
+            $('.qchoiceflag').remove();
+        }
 
         // ------------------------------------------------
         // Switch between light and dark color schemes
@@ -375,13 +398,17 @@
         }
         ColorScheme.DARK_BKG = 'rgb(50, 50, 50)';
         ColorScheme.DARK_COLOR = 'rgb(230, 230, 230)';
-        ColorScheme.LIGHT_BKG = 'url(../img/bkg3.jpg) no-repeat center center fixed'
+        ColorScheme.LIGHT_BKG = 'url(static/img/bkg3.jpg) no-repeat center center fixed'
         ColorScheme.LIGHT_COLOR = 'white'
         ColorScheme.prototype.toggle = function() {
-            return this.isDark && this.normal() || this.dark();
+            if (this.isDark) {
+                this.normal();   
+            } else {
+                this.dark();
+            }
         };
         ColorScheme.prototype.normal = function() {
-            this.$body.css('background', 'url(../img/bkg3.jpg) no-repeat center center fixed');
+            this.$body.css('background', 'url(static/img/bkg3.jpg) no-repeat center center fixed');
             this.$main.css('background-color', 'white');
             this.$opt.prop('checked', false);
             this.isDark = false;
@@ -395,7 +422,11 @@
             this.storage.saveColor('dark');
         };
         ColorScheme.prototype.handleOptChange = function() {
-            return (this.$opt.is(':checked')) && this.dark() || this.normal();
+            if (this.$opt.is(':checked')) { 
+                this.dark(); 
+            } else {
+                this.normal();
+            }
         };
 
         // ------------------------------------------------
@@ -442,17 +473,6 @@
         };
         Testing.prototype.getUserAnswer = function(questionNum) {
             return (this.test.answers && this.test.answers[questionNum] || null);
-        };
-        Testing.prototype.selectCorrect = function(user, correct) {
-            var opts = $('input[type=radio]');
-            if (correct && correct <= opts.length) {
-                $('<span><i class="fa fa-check text-success"/>&nbsp;&nbsp;</span> ').insertBefore(opts[correct-1]);
-                $(opts[correct-1]).prev().css('margin-left', '-20px')
-            }
-            if (user && user != correct) {
-                $('<span><i class="fa fa-ban text-danger"/>&nbsp;&nbsp;</span> ').insertBefore(opts[user-1]);
-                $(opts[user-1]).prev().css('margin-left', '-20px')
-            }
         };
         Testing.prototype.selectOption = function(questionNum, opt) {
             var test = this.getTest();
@@ -502,11 +522,11 @@
             $(document).bind('keypress', '5', this.select.bind(this, 5));
 
             // Button click handlers
-            $(buttonPrefix + '1').click(function() { selectMastery(1); });
-            $(buttonPrefix + '2').click(function() { selectMastery(2); });
-            $(buttonPrefix + '3').click(function() { selectMastery(3); });
-            $(buttonPrefix + '4').click(function() { selectMastery(4); });
-            $(buttonPrefix + '5').click(function() { selectMastery(5); });
+            $(buttonPrefix + '1').click(this.select.bind(this, 1));
+            $(buttonPrefix + '2').click(this.select.bind(this, 2));
+            $(buttonPrefix + '3').click(this.select.bind(this, 3));
+            $(buttonPrefix + '4').click(this.select.bind(this, 4));
+            $(buttonPrefix + '5').click(this.select.bind(this, 5));
         };
         Mastery.prototype.clear = function() {
             this.storage.clearMastery();
@@ -531,48 +551,23 @@
         // ------------------------------------------------
         // Manage user notes in the answer section
         // ------------------------------------------------
-        var Notes = function(panel, affixedContainer, editor, opt, showLink, hideLink, answerText, storage) {
-            var $answerText = $(answerText);
-            this.$panel = $(panel);
-            this.$affixedContainer = $(affixedContainer);
+        var Notes = function(container, editor, storage) {
             this.$editor = $(editor);
-            this.$opt = $(opt);
-            this.$showLink = $(showLink);
-            this.$hideLink = $(hideLink);
-            this.$answerText = $answerText;
             this.storage = storage;
 
+            // Shortcut key
+            $(document).bind('keypress', 'n', this.focus.bind(this));
+
             // Initialize notes box
-            if (this.storage.getNotes('visible')) { this.show(); }
             this.$editor.notebook({ placeholder: '', modifiers: ['bold', 'italic', 'underline', 'ol', 'ul'] });
             this.$editor.on('input', this.save.bind(this));
             this.$editor.keydown(this.handleKeydown.bind(this));
-            this.$affixedContainer.affix({offset: { top: function() { return $answerText.offset().top - 10; }}});
-
-            // Shortcut keys
-            $(document).bind('keypress', 'n', this.toggle.bind(this));
-
-            // Hide / show link and config option handlers
-            this.$showLink.click(this.show.bind(this));
-            this.$hideLink.click(this.hide.bind(this));
-            this.$opt.change(this.handleOptChange.bind(this));
         };
-        Notes.prototype.toggle = function() {
-            return this.$opt.is(':checked') ? this.hide() : this.show();
-        };
-        Notes.prototype.show = function() {
-            this.$answerText.removeClass('col-md-12').addClass('col-md-9');
-            this.$showLink.hide();
-            this.$panel.show();
-            this.$affixedContainer.show();
-            this.updateOpt(true);
-        };
-        Notes.prototype.hide = function() {
-            this.$answerText.removeClass('col-md-9').addClass('col-md-12');
-            this.$showLink.show();
-            this.$panel.hide();
-            this.$affixedContainer.hide();
-            this.updateOpt(false);
+        Notes.prototype.focus = function() {
+            if (this.$editor.is(':visible')) {
+                this.$editor.focus();
+                return false;
+            }
         };
         Notes.prototype.save = function() {
             var notes = this.$editor.html();
@@ -584,20 +579,8 @@
             var notes = this.storage.getCurrentNotes() || '';
             this.$editor.html(notes);
         };
-        Notes.prototype.updateOpt = function(visible) {
-            var notes = this.storage.getNotes();
-            notes['visible'] = visible;
-            this.storage.saveNotes(notes);
-            this.$opt.prop('checked', visible);
-        };
         Notes.prototype.handleKeydown = function(e) {
             if (e.keyCode == 27) { this.$editor.blur(); }
-        };
-        Notes.prototype.handleOptChange = function() {
-            return this.$opt.is(':checked') ? this.show() : this.hide();
-        };
-        Notes.prototype.refreshWidth = function() {
-            this.$affixedContainer.width(this.$affixedContainer.parent().width());
         };
 
         // ------------------------------------------------
@@ -722,10 +705,10 @@
         Navigation.prototype.toggleAnswer = function() {
             this.$answer.toggle();
             if (this.$answer.is(':visible')) {
-                $('html,body').animate({scrollTop: this.$answer.offset().top - 250}, 'fast');
-                
-                // Update notes editor
-                this.ui.notes.refreshWidth();
+                $('html,body').animate({scrollTop: this.$answer.offset().top - 225}, 'fast');
+                this.ui.selectCorrect();
+            } else {
+                this.ui.hideCorrect();
             }
         };
 
