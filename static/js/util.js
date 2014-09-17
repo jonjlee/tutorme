@@ -9,49 +9,35 @@ var INITIAL_URL = location.href;
 var PUSHED_STATE = false;
 var isOnLoadPopState = function() { return !PUSHED_STATE && location.href == INITIAL_URL; }
 
-// localStorage keys
-STORAGE_KEYS_BASE = 'tutorme.capstone';
-STORAGE_KEYS = {
-    base: STORAGE_KEYS_BASE,
-    expanded: STORAGE_KEYS_BASE + '.expanded',
-    mastery: STORAGE_KEYS_BASE + '.mastery',
-    notes: STORAGE_KEYS_BASE + '.notes',
-    color: STORAGE_KEYS_BASE + '.color',
-    hilites: STORAGE_KEYS_BASE + '.highlights',
-    testlist: STORAGE_KEYS_BASE + '.testlist',
-}
+// Settings storage. Cached locally in STORAGE_CACHE with source of truth on server.
+COLOR_STORAGE_KEY = 'tutorme.qbank.color';
+EXPANDED_STORAGE_KEY = 'tutorme.qbank.expanded';
 var Storage = function(getCurrentKeyFn) {
+    this.user = 'step2';
+    this.objectUrl = function(name, key) { return '/storage/' + this.user + '/' + name + (key ? '/'+key : ''); };
+
     // If provided, Storage.currentKey will return an ID for the current question
     this.currentKey = getCurrentKeyFn;
 
     // --------------------------------------------------------------------------------------------
-    // Read/write directly to localStorage using the keys defined in STORAGE_KEYS 
-    // (e.g. mastery, notes, ...). Only strings are stored - everything passes through
-    // JSON.stringify() / JSON.parse() on read/write.
+    // Read write an entire object or a particular key. The first parameter, name, should be a key. 
+    // If the key parameter is not given, return the entire object. The object is first written to
+    // the in memory STORAGE_CACHE (defined by the script /storage.js), then to the server.
     // --------------------------------------------------------------------------------------------
-    this.read = function(key, def) { return JSON.parse(localStorage.getItem(STORAGE_KEYS[key]) || def); };
-    this.write = function(key, val) { localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(val)); };
-    this.clear = function(key) { localStorage.removeItem(STORAGE_KEYS[key]); };
-    this.print = function() { 
-        for (var i in localStorage) { 
-            if (i.indexOf(STORAGE_KEYS.base) === 0) {
-                console.log(i + ': ' + localStorage.getItem(i));
-            }
-        }
-    }
-    
-    // --------------------------------------------------------------------------------------------
-    // Read write an entire object or a particular key. The first parameter, name, should be a key
-    // in STORAGE_KEYS (e.g. mastery, notes, ...). If the key parameter is not given, return the 
-    // entire object.
-    // --------------------------------------------------------------------------------------------
-    this.getObject = function(name, key) {
-        var obj = this.read(name, '{}');
-        return (key !== undefined) ? obj[key] : obj;
+    this.print = function() {
+        console.log(STORAGE_CACHE); 
     };
-    this.saveObject = function(name, key, obj) {
+    this.getObject = function(name, key) {
+        var obj = STORAGE_CACHE[name] || {};
+        if (key !== undefined) {
+            return obj[key] || null;
+        }
+        return obj;
+    };
+    this.saveObject = function(name, key, obj, sync) {
         // key argument is optional. When omitted, arguments are (name, obj)
         if (obj === undefined) {
+            var val = key;
             obj = key;
             key = undefined;
         }
@@ -60,23 +46,51 @@ var Storage = function(getCurrentKeyFn) {
             obj = this.getObject(name);
             obj[key] = val;
         }
-        this.write(name, obj);
+        STORAGE_CACHE[name] = obj;
+
+        // Update server
+        var url = this.objectUrl(name, key);
+        var data = JSON.stringify(val);  // Note that JSON.stringify() is NOT mirrored by JSON.parse() in this.getObject. Instead, this JSON string is parsed by the server before storing into the DB.
+        $.ajax({
+            type: 'PUT',
+            url: url,
+            data: data,
+            async: !sync,
+            error: function(jqXHR, status, error) {
+                console.error('Error updating ' + url + ': [' + status + '] ' + error); 
+            }
+        });
     };
     this.clearObject = function(name, key) {
         if (key) { 
             var obj = this.getObject(name);
             delete obj[key];
-            this.write(name, obj);
+            STORAGE_CACHE[name] = obj;
         } else {
-            this.clear(name);
+            delete STORAGE_CACHE[name];
         }
+
+        // Update server
+        var url = this.objectUrl(name, key);
+        $.ajax({
+            type: 'DELETE',
+            url: url,
+            error: function(jqXHR, status, error) {
+                console.error('Error clearing ' + url + ': [' + status + '] ' + error); 
+            }
+        });
     };
 
     // --------------------------------------------------------------------------------------------
-    // Convenience functions for specific data
+    // Functions for specific data
     // --------------------------------------------------------------------------------------------
-    this.getExpanded         = function(key)         { return this.getObject('expanded', key); };
-    this.saveExpanded        = function(key, val)    { this.saveObject('expanded', key, val); };
+    // LocalStorage data
+    this.getExpanded         = function()            { return JSON.parse(localStorage.getItem(EXPANDED_STORAGE_KEY) || '{}'); };
+    this.saveExpanded        = function(val)         { localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(val)); };
+    this.getColor            = function()            { return localStorage.getItem(COLOR_STORAGE_KEY) || ''; };
+    this.saveColor           = function(val)         { localStorage.setItem(COLOR_STORAGE_KEY, val); };
+    this.clearColor          = function()            { localStorage.removeItem(COLOR_STORAGE_KEY); };
+    // Data in server and mirrored locally in STORAGE_CACHE
     this.getMastery          = function(key)         { return this.getObject('mastery', key); };
     this.getCurrentMastery   = function()            { return this.getMastery(this.currentKey()); };
     this.saveMastery         = function(key, val)    { this.saveObject('mastery', key, val); };
@@ -87,15 +101,12 @@ var Storage = function(getCurrentKeyFn) {
     this.getCurrentNotes     = function()            { return this.getNotes('q,' + this.currentKey()); };
     this.saveNotes           = function(key, obj)    { this.saveObject('notes', key, obj); };
     this.saveCurrentNotes    = function(obj)         { this.saveNotes('q,' + this.currentKey(), obj); };
-    this.getColor            = function()            { return localStorage.getItem(STORAGE_KEYS['color']) || ''; };
-    this.saveColor           = function(val)         { localStorage.setItem(STORAGE_KEYS['color'], val); };
-    this.clearColor          = function(val)         { localStorage.removeItem(STORAGE_KEYS['color']); };
     this.getHilites          = function(key)         { return this.getObject('hilites', key); };
     this.getCurrentHilites   = function(prefix)      { return this.getHilites(prefix + ',' + this.currentKey()); };
     this.saveHilites         = function(key, obj)    { this.saveObject('hilites', key, obj); };
     this.saveCurrentHilites  = function(prefix, obj) { this.saveHilites(prefix + ',' + this.currentKey(), obj); };
     this.getTestList         = function(key)         { return this.getObject('testlist', key); };
-    this.saveTestList        = function(key, obj)    { this.saveObject('testlist', key, obj); };
+    this.saveTestList        = function(key, obj, sync) { this.saveObject('testlist', key, obj, sync); };
 }
 
 // Return an object with URL query parameters

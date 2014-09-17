@@ -165,6 +165,7 @@
     <script type="text/javascript" src="static/thirdparty/fancybox/jquery.fancybox.pack.js"></script>
     <script src="static/js/data.js"></script>
     <script src="static/js/util.js"></script>
+    <script src="/storage.js"></script>
     <script type="text/javascript">
     <!--
         // elapsedTimeout is a global var to ensure there is only ever one timer on the page.
@@ -284,12 +285,12 @@
                 breadcrumb = [{href: 'testindex.html', text: 'Practice Tests'}, 'Test - Created ' + this.testing.test.date ];
                 numQuestions = this.testing.numQuestions;
                 
-                selectedAnswer = this.testing.getUserAnswer(actualQuestionNum);
+                selectedAnswer = this.testing.getUserAnswer(questionNum);
                 correct = this.reviewMode && correctAnswerFromQuestion(question)
                 source = '<p><small><a href="questions.html?&review=1&section=' + (sectionNum+1) + '&q=' + (actualQuestionNum+1) + '">' + section.section + ' #' + (actualQuestionNum+1) + '</a></small></p>';
 
                 // Store the last visited question for the practice test
-                this.testing.setLastQuestion(actualQuestionNum);
+                this.testing.setLastQuestion(questionNum);
             } else {
                 section = this.data[sectionNum];
                 question = section.questions[questionNum];
@@ -750,9 +751,19 @@
             ui.showQuestion();
         }
 
+        function refresh() {
+            var qparams = getUrlVars(),
+                sectionNum = parseInt(qparams.section),
+                questionNum = parseInt(qparams.q);
+
+            ui.navigation.sectionNum = isNaN(sectionNum) ? 0 : Math.max(sectionNum-1);
+            ui.navigation.questionNum = isNaN(questionNum) ? 0 : Math.max(0, questionNum-1);
+            ui.showQuestion();
+        }
+
         // Load when document ready and when going back/forward with popstate
         $(document).ready(load);
-        window.onpopstate = function() { return isOnLoadPopState() || load(); }
+        window.onpopstate = function() { return isOnLoadPopState() || refresh(); }
     -->
     </script>
     <!-- Google analytics -->
